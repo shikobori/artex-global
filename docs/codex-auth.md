@@ -48,19 +48,19 @@ needed. The image includes the Codex CLI and imports the JSON at startup into
 
 ### Build the local image
 
-Compose uses `artex:local` with pulling disabled. Build this checkout using the
-repository's precompiled-binary Docker build. The default target is `linux/amd64`;
-for ARM64, change `platform` in `docker-compose.yml` to `linux/arm64` and replace
-`amd64` with `arm64` below:
+Compose uses `artex:local` with pulling disabled for that image. Its `local` build
+target compiles the frontend and Go binary inside Docker. No host Go/npm tools
+or `dist/amd64/artex` file are required. The default platform is `linux/amd64`;
+for ARM64, change `platform` in `docker-compose.yml` to `linux/arm64`.
 
 ```sh
-# Requires Go, npm, rsync, and Docker.
-ARTEX_OUTPUT=dist/amd64/artex ./build.sh --target linux/amd64 --no-compress
+# Requires Docker and Docker Compose.
 docker compose build artex
 ```
 
-Run these build commands again after source changes, then run
-`docker compose up -d` to deploy the updated image.
+After configuring `.env` below, run `docker compose up -d --build` to build and
+start the services. Repeat that command after source changes. The separate
+`release` Dockerfile target still accepts precompiled binaries for release CI.
 
 ### Paste the existing login into `.env`
 

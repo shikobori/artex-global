@@ -15,12 +15,13 @@ services:
     restart: unless-stopped
 
   artex:
-    # Build the Linux binary first; see the README's Docker Compose quick start.
+    # Compile the frontend and Linux binary inside Docker.
     image: artex:local
     pull_policy: never
     platform: linux/amd64
     build:
       context: .
+      target: local
     depends_on:
       postgres:
         condition: service_healthy
