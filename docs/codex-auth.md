@@ -46,22 +46,21 @@ The standard `docker-compose.yml` accepts the full contents of `auth.json` in
 needed. The image includes the Codex CLI and imports the JSON at startup into
 `/app/data/codex/auth.json`, persisted by the existing `./data` volume.
 
-### Build an image containing these changes
+### Build the local image
 
-An older published `latest` image does not contain this implementation. Either
-use a release that includes it, or build this checkout locally using the
-repository's existing precompiled-binary Docker build:
+Compose uses `artex:local` with pulling disabled. Build this checkout using the
+repository's precompiled-binary Docker build. The default target is `linux/amd64`;
+for ARM64, change `platform` in `docker-compose.yml` to `linux/arm64` and replace
+`amd64` with `arm64` below:
 
 ```sh
-# Requires Go, npm, rsync, and Docker. Choose the Docker host's architecture.
-arch=amd64 # use arm64 for an ARM64 host
-ARTEX_OUTPUT="dist/$arch/artex" ARTEX_COMPRESS=0 ./build.sh --target "linux/$arch"
-docker build --platform "linux/$arch" --build-arg TARGETARCH="$arch" \
-  -t ghcr.io/jiwoochris/artex-global:codex-local .
+# Requires Go, npm, rsync, and Docker.
+ARTEX_OUTPUT=dist/amd64/artex ./build.sh --target linux/amd64 --no-compress
+docker compose build artex
 ```
 
-Set `ARTEX_TAG=codex-local` in `.env` for that local image. If using a published
-image with this feature instead, set `ARTEX_TAG` to its release tag.
+Run these build commands again after source changes, then run
+`docker compose up -d` to deploy the updated image.
 
 ### Paste the existing login into `.env`
 
@@ -69,7 +68,6 @@ Copy `.env.example` to `.env` if needed, set `POSTGRES_PASSWORD`, and paste the
 **complete contents** of your Codex `auth.json` between single quotes:
 
 ```dotenv
-ARTEX_TAG=codex-local
 ARTEX_LLM_PROVIDER=codex
 ARTEX_LLM_MODEL=your-codex-model-id
 ARTEX_CODEX_AUTH_JSON='{
