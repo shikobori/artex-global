@@ -444,7 +444,7 @@ func (s *Server) loadLLMConfig() (agent.Config, bool) {
 	cfg.MaxTokens, cfg.MaxTokensField = p.MaxTokens, p.MaxTokensField
 	cfg.SessionHeaderKey = p.SessionHeaderKey
 	s.applyProfileRetry(&cfg, p)
-	if cfg.APIKey == "" {
+	if !cfg.HasCredentials() {
 		return cfg, false
 	}
 	s.cfgMu.Lock()
@@ -615,7 +615,7 @@ func (s *Server) loadProfileConfig(id int64) (agent.Config, bool) {
 	cfg.MaxTokens, cfg.MaxTokensField = p.MaxTokens, p.MaxTokensField
 	cfg.SessionHeaderKey = p.SessionHeaderKey
 	s.applyProfileRetry(&cfg, p)
-	if cfg.APIKey == "" {
+	if !cfg.HasCredentials() {
 		return cfg, false
 	}
 	return cfg, true
@@ -847,6 +847,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/llm", s.getLLM)
 	mux.HandleFunc("POST /api/llm", s.setLLM)
 	mux.HandleFunc("POST /api/llm/test", s.testLLM)
+	mux.HandleFunc("GET /api/llm/codex/status", s.codexStatus)
 
 	// asset system
 	mux.HandleFunc("GET /api/assets", s.listAssets)
@@ -1404,7 +1405,7 @@ func (s *Server) getLLM(w http.ResponseWriter, r *http.Request) {
 		"model":            s.llmCfg.Model,
 		"base_url":         s.llmCfg.BaseURL,
 		"proxy":            s.llmCfg.Proxy,
-		"key_set":          s.llmCfg.APIKey != "",
+		"key_set":          s.llmCfg.HasCredentials(),
 		"rate_per_second":  s.llmCfg.RatePerSecond,
 		"rate_per_minute":  s.llmCfg.RatePerMinute,
 		"context_window_k": s.llmCfg.ContextWindowK,
@@ -1441,12 +1442,12 @@ func (s *Server) setLLM(w http.ResponseWriter, r *http.Request) {
 		}
 		cfg.ContextWindowK = k
 	}
-	if cfg.APIKey == "" {
+	if !cfg.HasCredentials() {
 		s.cfgMu.Lock()
 		cfg.APIKey = s.llmCfg.APIKey // keep existing key if not re-entered
 		s.cfgMu.Unlock()
 	}
-	if cfg.APIKey == "" {
+	if !cfg.HasCredentials() {
 		writeErr(w, 400, "api_key required")
 		return
 	}
@@ -1509,7 +1510,7 @@ func (s *Server) testLLM(w http.ResponseWriter, r *http.Request) {
 	// 会话头名同理：表单未带时用已存 profile 的值兜底。
 	if req.ProfileID != nil && (cfg.APIKey == "" || cfg.SessionHeaderKey == "") {
 		if p, err := s.m.pg.ProfileByID(*req.ProfileID); err == nil && p != nil {
-			if cfg.APIKey == "" {
+			if !cfg.HasCredentials() {
 				cfg.APIKey = p.APIKey
 			}
 			if cfg.SessionHeaderKey == "" {
@@ -1517,12 +1518,12 @@ func (s *Server) testLLM(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if cfg.APIKey == "" {
+	if !cfg.HasCredentials() {
 		s.cfgMu.Lock()
 		cfg.APIKey = s.llmCfg.APIKey
 		s.cfgMu.Unlock()
 	}
-	if cfg.APIKey == "" {
+	if !cfg.HasCredentials() {
 		writeJSON(w, 200, map[string]any{"ok": false, "error": trMsg(errLLMTestNoAPIKey)})
 		return
 	}

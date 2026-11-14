@@ -24,6 +24,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Autumn-27/artex/agent"
+	"github.com/Autumn-27/artex/codexauth"
 	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/norma/llm"
 	"github.com/Autumn-27/norma/skill"
@@ -2056,6 +2057,15 @@ func (s *Server) pgListModels(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decode(r, &req); err != nil {
 		writeErr(w, 400, err.Error())
+		return
+	}
+	if req.Provider == "codex" {
+		models, err := codexauth.Models(r.Context())
+		if err != nil {
+			writeJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "models": models})
 		return
 	}
 	// Resolve API key: form input > profile stored key.

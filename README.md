@@ -103,6 +103,12 @@ docker compose up -d          # brings up the artex image + postgres together
 
 The image bundles common tools (ripgrep, curl, vim, npm, nmap, and more), and when brought up with compose, `./skills` and `./data` are bind-mounted to the host and survive container recreation.
 
+To reuse a **Codex ChatGPT login** in Docker, the image includes the Codex CLI.
+Paste the full `auth.json` content into the single-quoted `ARTEX_CODEX_AUTH_JSON`
+value in `.env`, then run `docker compose up -d`. Refreshed credentials persist
+under `./data/codex`. See [Codex authentication in Docker Compose](docs/codex-auth.md#docker-compose)
+for the exact `.env` layout and how to build an image with this feature.
+
 ### Other installation methods
 
 Upstream provides several methods: an install script (`./install.sh`), precompiled binaries (Releases), and a single-binary build from source. The commands and full procedure are collected in the "安装" (Installation) section of [`README.zh.md`](README.zh.md#安装) (in Chinese); the essentials are reproduced below.

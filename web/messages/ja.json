@@ -3488,6 +3488,13 @@
         "saved": "保存しました。即座に適用されます (現在進行中のこの呼び出しは以前の値をそのまま使います)",
         "saveFailed": "保存に失敗しました: {msg}"
       }
+    },
+    "codex": {
+      "label": "Codex（ChatGPT ログイン）",
+      "hint": "ARTEX サーバー上の Codex CLI の ChatGPT ログインを使用します。Docker Compose では .env の ARTEX_CODEX_AUTH_JSON に auth.json を貼り付けてください。それ以外ではサーバー上で codex login を実行してください。この設定に API キーは保存されません。",
+      "checking": "Codex のログインを確認中…",
+      "connected": "保存済みの ChatGPT ログインが見つかりました。接続テストでアクセスを確認してください。",
+      "check": "ログインを再確認"
     }
   },
   "notifyPage": {

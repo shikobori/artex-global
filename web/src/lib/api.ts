@@ -972,6 +972,7 @@ export const api = {
       streaming,
       session_header_key,
     }),
+  codexStatus: () => get<{ connected: boolean; error?: string }>("/llm/codex/status"),
   llmProfiles: () => get<{ profiles: LLMProfile[] }>("/llm/profiles").then((r) => arr(r.profiles)),
   saveLLMProfile: (p: {
     id?: number; // omit/0 = create; set = update that profile

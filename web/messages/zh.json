@@ -3488,6 +3488,13 @@
         "saved": "已保存，即时生效（正在跑的这一轮调用仍用旧参数）",
         "saveFailed": "保存失败：{msg}"
       }
+    },
+    "codex": {
+      "label": "Codex（ChatGPT 登录）",
+      "hint": "使用 ARTEX 服务器上的 Codex CLI ChatGPT 登录。使用 Docker Compose 时，将 auth.json 粘贴到 .env 的 ARTEX_CODEX_AUTH_JSON 中；其他环境请在服务器上运行 codex login。此配置不保存 API 密钥。",
+      "checking": "正在检查 Codex 登录…",
+      "connected": "已找到保存的 ChatGPT 登录。请测试连接以验证访问权限。",
+      "check": "重新检查登录"
     }
   },
   "notifyPage": {

@@ -14,3 +14,9 @@ bench/.env
 bench/scheduler.py
 bench/entrypoint_v2.sh
 bench/seed_v2.sh
+# Runtime credentials must not enter the Docker build context.
+.env
+*.env
+.secrets
+**/.codex
+**/auth.json

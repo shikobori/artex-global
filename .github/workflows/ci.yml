@@ -31,6 +31,8 @@ jobs:
         run: go vet ./...
       - name: go test (DB 없음 — 통합 테스트는 스킵)
         run: go test ./... -count=1
+      - name: Docker credential import tests
+        run: python3 -m unittest discover -s scripts -p test_docker_entrypoint.py -v
 
   # 실제 PostgreSQL 이 있어야 도는 DB 통합 테스트(알림·증거·사용량 계량 등)를 맡는다.
   # 위 go job 이 스킵하는 경로(알림 채널 검증, 증거 저장, llm_usage 계량 등)를 실제

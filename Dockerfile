@@ -12,6 +12,9 @@
 #   docker build -t artex:local .
 FROM python:3.12-slim-bookworm
 ARG TARGETARCH
+# Pin the CLI used for ChatGPT login refresh and model discovery. Credentials
+# are imported at runtime; no auth files or tokens are build arguments.
+ARG CODEX_VERSION=0.169.0
 # 상용 도구: ripgrep / curl / vim 에 더해 recon 에 자주 쓰는 도구 묶음(필요에 따라 추가·삭제).
 # Node 는 NodeSource 에서 20.x 를 설치한다: bookworm 기본 apt nodejs 는 18 이고, Playwright 는 >=20 을 요구한다.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,6 +23,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
+RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
+    && codex --version \
+    && npm cache clean --force
 # Playwright MCP 와 CLI 를 전역으로 미리 설치한다(런타임에 npx 로 네트워크 다운로드하지 않도록).
 # @playwright/mcp: browser MCP 는 `npx @playwright/mcp` 로 바로 실행한다(전역 설치 완료, -y/@latest 불필요).
 # @playwright/cli: playwright-cli 를 제공하며, 설치 후 --help 로 실행 가능 여부를 확인한다.
@@ -36,10 +42,12 @@ COPY dist/${TARGETARCH}/artex /app/artex
 # 이 스크립트는 동시에 SIGTERM 을 artex 로 전달하는 일도 맡는다: docker stop 은 신호를 PID 1 에만 보내므로,
 # 전달하지 않으면 artex 가 신호를 받지 못해 우아한 종료를 못 하고 10 초 뒤 SIGKILL 로 강제 종료된다.
 COPY start.sh /app/start.sh
+COPY scripts/docker-entrypoint.py /app/docker-entrypoint.py
+ENV CODEX_HOME=/app/data/codex
 RUN chmod +x /app/artex /app/start.sh
 COPY skills/ /app/skills/
 # data/(SQLite + jwt.key) 영속화 지점
 VOLUME ["/app/data"]
 EXPOSE 8787 8788
-ENTRYPOINT ["/app/start.sh"]
+ENTRYPOINT ["python3", "/app/docker-entrypoint.py"]
 CMD ["-addr", ":8787", "-proxy", ":8788"]
