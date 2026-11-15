@@ -2,9 +2,9 @@ package intercept
 
 import "github.com/Autumn-27/artex/config"
 
-// 가로채기 판정 액션 라벨(allow/deny/ask)의 다국어 표. 판정 메시지에 쓰이며 출력 언어를
-// 따른다(config.ActiveLanguage). 미배선/미지원 언어는 ko 로 떨어진다. enum 키(allow/deny/
-// ask)와 소스 마커("[模型]")는 안정 식별자라 번역하지 않는다.
+// Localized interception action labels follow config.ActiveLanguage.
+// Unknown languages fall back to English. Enum keys and the legacy source marker
+// remain stable identifiers.
 var judgeActionLabels = map[string]map[string]string{
 	"en": {"allow": "allow", "deny": "deny", "ask": "ask"},
 	"ko": {"allow": "허용", "deny": "차단", "ask": "확인 요청"},
@@ -18,5 +18,5 @@ func judgeActionLang() string {
 	if _, ok := judgeActionLabels[lang]; ok {
 		return lang
 	}
-	return "ko"
+	return "en"
 }

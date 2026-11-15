@@ -109,10 +109,9 @@ CA_RELPATH = os.path.join("_ca", "mitmproxy-ca-cert.pem")
 INDEX_RELPATH = os.path.join("_index", "index.sqlite")
 BLOBS_RELDIR = "_blobs"
 
-# Log markers. The guard marker is the original (untranslated) framing string the
-# platform guard writes to the audit log on a blocked tool call (guard/guard.go);
-# it is kept verbatim here because that is the exact byte sequence a responder
-# greps for, and translating it would stop the match.
+# Log markers. Match the current English guard framing string (guard/guard.go)
+# and the original Chinese marker from older releases. Preserve the legacy bytes
+# so incident responders can still find historical audit records.
 LOG_MARKERS = [
     {
         "value": "artex-enrich/1.0",
@@ -129,11 +128,18 @@ LOG_MARKERS = [
         "caveat": "Seen in outbound logs from a host running ARTEX; the string is configurable.",
     },
     {
-        "value": "【ARTEX 平台管控·非目标防御】",
+        "value": "[ARTEX platform control, not target defense]",
         "title": "platform-guard audit-log framing marker",
         "source": "guard/guard.go",
         "severity": "high",
         "caveat": "Also appears in logs that merely quote this defense guide or the ARTEX source.",
+    },
+    {
+        "value": "【ARTEX 平台管控·非目标防御】",
+        "title": "legacy platform-guard audit-log framing marker",
+        "source": "detections/tests/sigma_match/events/artex_guard_audit_framing.json",
+        "severity": "high",
+        "caveat": "Used by older ARTEX releases; may also occur in quoted source or documentation.",
     },
 ]
 
@@ -376,7 +382,7 @@ def scan_logs(logs, log_dirs):
             continue
         # Stream line by line instead of f.read(): the sanctioned log targets are
         # whole syslogs (--log /var/log/syslog) that can be hundreds of MB, and all
-        # three markers live within a single line, so a line at a time keeps memory
+        # markers live within a single line, so a line at a time keeps memory
         # bounded to one line while matching exactly what a full read would.
         # open_log_stream transparently decompresses a .gz/.bz2/.xz rotated log so
         # its history is scanned too. Report each marker at most once per file (the
@@ -771,7 +777,13 @@ def self_test():
             f.write("blocked: " + LOG_MARKERS[2]["value"] + " this operation is denied\n")
             f.write("a normal line with no markers\n")
         lf, _ = scan_logs([logpath], [])
-        check("logs: all three markers fire", len(lf) == 3)
+        check("logs: all three current markers fire", len(lf) == 3)
+        legacy_log = os.path.join(tmp, "legacy.log")
+        with open(legacy_log, "w", encoding="utf-8") as f:
+            f.write("blocked: " + LOG_MARKERS[3]["value"] + " historical denial\n")
+        legacy_findings, legacy_skipped = scan_logs([legacy_log], [])
+        check("logs: historical Chinese guard marker still fires",
+              len(legacy_findings) == 1 and not legacy_skipped)
 
         # 3b. rotated (compressed) logs under a --log-dir are scanned too, not
         # silently skipped. A responder pointing at /var/log/artex expects the

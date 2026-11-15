@@ -8,10 +8,8 @@ import (
 	"testing"
 )
 
-// TestSyncScopeSentryConstantsLocalized guards F3b (sync_scopesentry.go): every
-// user-facing message constant — surfaced either as a writeErr HTTP body or inside
-// the sync result's warnings/errors JSON arrays — must be Korean (Hangul present,
-// no Chinese Han). Reverting any literal to Chinese fails this test.
+// TestSyncScopeSentryConstantsLocalized checks English user-facing constants
+// returned in writeErr HTTP bodies and sync result warnings/errors arrays.
 func TestSyncScopeSentryConstantsLocalized(t *testing.T) {
 	cases := []struct {
 		label string
@@ -35,12 +33,12 @@ func TestSyncScopeSentryConstantsLocalized(t *testing.T) {
 		{"errSSParseServicePrefix", errSSParseServicePrefix},
 	}
 	for _, c := range cases {
-		assertKoreanError(t, c.label, c.msg)
+		assertEnglishError(t, c.label, c.msg)
 	}
 
 	// dimension/targets validation keep their JSON field names and enum values.
 	if !strings.Contains(errSSDimension, "project") || !strings.Contains(errSSDimension, "task") {
-		t.Fatalf("errSSDimension 이 enum 값을 잃었습니다: %q", errSSDimension)
+		t.Fatalf("errSSDimension lost its enum values: %q", errSSDimension)
 	}
 }
 
@@ -49,57 +47,57 @@ func TestSyncScopeSentryConstantsLocalized(t *testing.T) {
 // caught by running the real format operation (not just inspecting the constant).
 func TestSyncScopeSentryFormattedLocalized(t *testing.T) {
 	ds := fmt.Errorf(errSSDataSourceMissingFmt, scopeSentryMCPName).Error()
-	assertKoreanError(t, "scopeSentryClient/missing", ds)
+	assertEnglishError(t, "scopeSentryClient/missing", ds)
 	if !strings.Contains(ds, "ScopeSentry") {
-		t.Fatalf("데이터 소스 이름이 사라졌습니다: %q", ds)
+		t.Fatalf("data source name is missing: %q", ds)
 	}
 
 	noURL := fmt.Errorf(errSSDataSourceNoURLFmt, scopeSentryMCPName).Error()
-	assertKoreanError(t, "scopeSentryClient/noURL", noURL)
+	assertEnglishError(t, "scopeSentryClient/noURL", noURL)
 	if !strings.Contains(noURL, "URL") {
-		t.Fatalf("URL 토큰이 사라졌습니다: %q", noURL)
+		t.Fatalf("URL token is missing: %q", noURL)
 	}
 
 	meta := fmt.Sprintf(warnSSProjectMetaFmt, "proj-1", errors.New("boom"))
-	assertKoreanError(t, "warnSSProjectMetaFmt", meta)
+	assertEnglishError(t, "warnSSProjectMetaFmt", meta)
 	if !strings.Contains(meta, "proj-1") || !strings.Contains(meta, "boom") {
-		t.Fatalf("프로젝트/원본 오류가 치환되지 않았습니다: %q", meta)
+		t.Fatalf("project/original error was not substituted: %q", meta)
 	}
 
 	company := fmt.Sprintf(warnSSCompanyCreateFmt, "ACME", errors.New("boom"))
-	assertKoreanError(t, "warnSSCompanyCreateFmt", company)
+	assertEnglishError(t, "warnSSCompanyCreateFmt", company)
 	if !strings.Contains(company, "ACME") {
-		t.Fatalf("회사 이름이 치환되지 않았습니다: %q", company)
+		t.Fatalf("company name was not substituted: %q", company)
 	}
 
 	fetch := fmt.Sprintf(errSSFetchFmt, "subdomain", "t1", errors.New("boom"))
-	assertKoreanError(t, "errSSFetchFmt", fetch)
+	assertEnglishError(t, "errSSFetchFmt", fetch)
 	if !strings.Contains(fetch, "subdomain") || !strings.Contains(fetch, "t1") {
-		t.Fatalf("자산 유형/대상이 치환되지 않았습니다: %q", fetch)
+		t.Fatalf("asset type/target was not substituted: %q", fetch)
 	}
 
 	truncated := fmt.Sprintf(warnSSTruncatedFmt, "app", "t1", syncMaxPerType)
-	assertKoreanError(t, "warnSSTruncatedFmt", truncated)
+	assertEnglishError(t, "warnSSTruncatedFmt", truncated)
 	if !strings.Contains(truncated, "5000") {
-		t.Fatalf("상한 건수가 치환되지 않았습니다: %q", truncated)
+		t.Fatalf("maximum count was not substituted: %q", truncated)
 	}
 }
 
 // TestSyncScopeSentryIngestParseErrorsLocalized runs ssIngest on malformed JSON for
 // each asset kind. The unmarshal failure returns before any store access, so this is
 // a real code path (nil AssetStore never dereferenced) that pins the parse-error
-// strings to Korean.
+// strings to English.
 func TestSyncScopeSentryIngestParseErrorsLocalized(t *testing.T) {
 	s := &Server{}
 	bad := json.RawMessage("not json")
 	for _, kind := range []string{"subdomain", "app", "service"} {
 		got := s.ssIngest(nil, kind, bad, map[string]int{})
 		if got == "" {
-			t.Fatalf("%s: 깨진 JSON 인데 오류 문자열이 비었습니다", kind)
+			t.Fatalf("%s: malformed JSON returned an empty error", kind)
 		}
-		assertKoreanError(t, "ssIngest/"+kind, got)
+		assertEnglishError(t, "ssIngest/"+kind, got)
 		if !strings.Contains(got, kind) {
-			t.Fatalf("%s: 자산 유형 접두가 사라졌습니다: %q", kind, got)
+			t.Fatalf("%s: asset type prefix is missing: %q", kind, got)
 		}
 	}
 }

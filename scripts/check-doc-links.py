@@ -1,30 +1,29 @@
 #!/usr/bin/env python3
-"""저장소 안 마크다운 문서의 내부 링크·이미지·앵커 참조 무결성을 검사한다.
+"""Check internal links, image references, and heading anchors in repository Markdown.
 
-추적되는 모든 `.md` 문서를 훑어 두 가지를 확인한다.
+Scan all tracked `.md` documents and verify two properties:
 
-1. 저장소 안 다른 파일을 가리키는 상대 경로 링크(`[text](path)`)와 이미지
-   참조(`![alt](path)`·`<img src="path">`)가 실제로 존재하는 파일을 가리키는지.
-2. 문서 앵커 링크(`[text](#heading)`·`[text](other.md#heading)`)가 대상 `.md`
-   문서에 실제로 있는 헤딩을 가리키는지. 앵커 slug 는 GitHub 의 규칙
-   (소문자화 → `\\p{Word}`·하이픈·공백만 남기고 제거 → 공백을 하이픈으로,
-   같은 slug 가 겹치면 등장 순서대로 `-1`·`-2` 접미)을 표준 라이브러리로
-   재현해 생성한다.
+1. Relative links (`[text](path)`) and images (`![alt](path)` or `<img src="path">`)
+   point to existing files in the repository.
+2. Anchor links (`[text](#heading)` or `[text](other.md#heading)`) refer to actual
+   headings in the target `.md` document. Reproduce GitHub's slug rules using the
+   standard library: lowercase, retain only `\\p{Word}`, hyphens, and spaces,
+   replace spaces with hyphens, and append `-1`, `-2`, etc. for duplicate slugs.
 
-깨진 참조가 하나라도 있으면 종료 코드 1 로 끝나므로, CI 머지 게이트
-(`.github/workflows/docs.yml`)와 기여자의 로컬 검증에 그대로 쓸 수 있다.
+Exit with code 1 if any reference is broken, for use as the CI merge gate
+(`.github/workflows/docs.yml`) or as a contributor's local check.
 
-검사 대상이 아닌 것:
-- 외부 URL(`http://`·`https://`·`mailto:`·`tel:`·`data:`): 네트워크에 의존해
-  flaky 하므로 이 결정론적 게이트에서는 다루지 않는다. 외부 링크 상태는 별도로
-  점검한다.
-- `.md` 가 아닌 파일을 가리키는 링크의 `#` 뒤 조각(예: 소스 코드 줄 번호): 헤딩
-  앵커가 아니므로 파일 실존만 확인하고 앵커는 검사하지 않는다.
-- 이미지 참조의 `#` 조각: 이미지에는 헤딩 앵커가 의미가 없다.
-- fenced code block(``` 또는 ~~~ 로 감싼 블록) 안의 예시 링크·헤딩 꼴 주석:
-  실제 참조·헤딩이 아니라 코드 예시이므로 건너뛴다.
+Excluded from this check:
+- External URLs (`http://`, `https://`, `mailto:`, `tel:`, `data:`): network-dependent
+  checks can be flaky and run separately from this deterministic gate.
+- Fragments after `#` in links to non-`.md` files (e.g. source line numbers):
+  check only file existence, since these are not heading anchors.
+- Image fragments: heading anchors do not apply to images.
+- Example links and heading-like comments in fenced code blocks (``` or ~~~):
+  these are code examples, not actual references or headings.
 
-표준 라이브러리만 쓰고 네트워크에 접속하지 않는다. 실행: `python3 -I scripts/check-doc-links.py`
+Uses only the standard library and no network.
+Run: `python3 -I scripts/check-doc-links.py`
 """
 import os
 import re
@@ -33,18 +32,18 @@ import sys
 import unicodedata
 from collections import defaultdict
 
-# [text](path) 중 이미지(`![...]`)가 아닌 링크. 경로는 공백 전까지(제목 "..." 제외).
+# [text](path) links, excluding images (`![...]`). Stop paths at whitespace (exclude titles).
 MD_LINK = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)")
-# ![alt](path) 이미지 링크.
+# ![alt](path) image links.
 MD_IMAGE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)")
-# <img ... src="path" ...> HTML 이미지.
+# <img ... src="path" ...> HTML images.
 HTML_IMAGE = re.compile(r"<img[^>]*\bsrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
 
-# 네트워크·비파일 스킴. 앵커(`#`)는 같은 문서 참조이므로 여기 넣지 않는다.
+# Network/non-file schemes. Exclude anchors (`#`), which reference the same document.
 EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "tel:", "data:")
 
 ATX_HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
-# 헤딩 텍스트 안의 인라인 마크다운을 걷어내 순수 텍스트만 남긴다.
+# Strip inline Markdown from heading text, leaving plain text.
 MD_INLINE_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 
 
@@ -53,11 +52,11 @@ def is_external(target: str) -> bool:
 
 
 def _is_word_char(ch: str) -> bool:
-    """GitHub 의 앵커 slug 규칙이 남기는 `\\p{Word}` 문자인지 판정한다.
+    """Check whether a character belongs to GitHub's retained `\\p{Word}` set.
 
-    Ruby 정규식 `\\p{Word}` = Letter(L*) + Mark(M*) + Decimal_Number(Nd)
-    + Connector_Punctuation(Pc) + Join_Control(U+200C·U+200D). 한글·한자·
-    언더스코어·이모지의 variation selector(Mn) 등이 그대로 유지된다.
+    Ruby regex `\\p{Word}` = Letter(L*) + Mark(M*) + Decimal_Number(Nd)
+    + Connector_Punctuation(Pc) + Join_Control(U+200C, U+200D). This preserves
+    Hangul, Han characters, underscores, and emoji variation selectors (Mn).
     """
     if ch == "_":
         return True
@@ -70,7 +69,7 @@ def _is_word_char(ch: str) -> bool:
 
 
 def slugify(text: str) -> str:
-    """헤딩 텍스트를 GitHub 의 앵커 slug 로 변환한다(중복 접미 처리 제외)."""
+    """Convert heading text to a GitHub anchor slug, excluding duplicate suffixes."""
     text = text.strip().lower()
     out = []
     for ch in text:
@@ -82,9 +81,9 @@ def slugify(text: str) -> str:
 
 
 def heading_slugs(root: str, md: str) -> set:
-    """파일의 모든 ATX 헤딩에서 GitHub 앵커 slug 집합을 만든다.
+    """Build the set of GitHub anchor slugs for all ATX headings in a file.
 
-    같은 slug 가 겹치면 GitHub 처럼 등장 순서대로 `-1`·`-2` 접미를 붙인다.
+    Append `-1`, `-2`, etc. to duplicate slugs in occurrence order, as GitHub does.
     """
     slugs = set()
     counts = defaultdict(int)
@@ -157,8 +156,8 @@ def main() -> int:
                     file_part = file_part.split("?", 1)[0]
                     anchor = anchor.strip()
 
-                    # 가리키는 .md 문서(앵커 검사 대상). 다른 파일 링크면 그 파일,
-                    # 파일 조각이 없는 `#앵커`면 자기 문서.
+                    # Resolve the target .md document for anchor checks; other file links
+                    # target their file, while a bare `#anchor` targets the current document.
                     target_md = None
                     if file_part:
                         checked_files += 1
@@ -175,28 +174,28 @@ def main() -> int:
                     else:
                         target_md = md
 
-                    # 앵커는 본문 링크(MD_LINK)에만 의미가 있다. 이미지 참조의
-                    # `#` 조각은 건너뛴다.
+                    # Anchors apply only to body links (MD_LINK). Skip fragments
+                    # after `#` in image references.
                     if anchor and target_md is not None and pattern is MD_LINK:
                         checked_anchors += 1
                         if anchor not in slugs_of(target_md):
                             broken_anchors.append((md, lineno, target, target_md))
 
     print(
-        f"추적 마크다운 {len(md_files)}개 · 파일 참조 {checked_files}개 · "
-        f"앵커 참조 {checked_anchors}개 검사"
+        f"Checked {len(md_files)} tracked Markdown files · {checked_files} file references · "
+        f"{checked_anchors} anchor references"
     )
     if broken_files:
-        print(f"깨진 파일 참조 {len(broken_files)}개 — 가리키는 파일이 저장소에 없습니다:")
+        print(f"{len(broken_files)} broken file references — target files are missing from the repository:")
         for md, lineno, target in broken_files:
             print(f"  {md}:{lineno} -> {target}")
     if broken_anchors:
-        print(f"깨진 앵커 참조 {len(broken_anchors)}개 — 대상 문서에 그 헤딩이 없습니다:")
+        print(f"{len(broken_anchors)} broken anchor references — target documents have no matching heading:")
         for md, lineno, target, target_md in broken_anchors:
-            print(f"  {md}:{lineno} -> {target}  (대상: {target_md})")
+            print(f"  {md}:{lineno} -> {target}  (target: {target_md})")
     if broken_files or broken_anchors:
         return 1
-    print("깨진 참조 0 — 모든 내부 링크·이미지·앵커가 실존 대상을 가리킵니다.")
+    print("0 broken references — all internal links, images, and anchors resolve to existing targets.")
     return 0
 
 

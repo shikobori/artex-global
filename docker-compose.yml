@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-artex}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env 파일에 POSTGRES_PASSWORD 를 설정하세요}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-artex}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -37,28 +37,28 @@ services:
       ARTEX_LLM_MODEL: ${ARTEX_LLM_MODEL:-}
       ARTEX_LLM_BASE_URL: ${ARTEX_LLM_BASE_URL:-}
       ARTEX_LLM_PROXY: ${ARTEX_LLM_PROXY:-}
-      # 첫 실행 보호. 비워 두면 기동 로그에 무작위 설정 토큰이 찍히고, /setup 에서 그 값을
-      # 입력해야 관리자 비밀번호를 만들 수 있습니다(docker compose logs artex 로 확인).
-      # ARTEX_ADMIN_PASSWORD 를 주면 /setup 없이 그 값으로 바로 초기화합니다(8자 이상).
+      # First-run protection. When blank, a random setup token is printed in the startup logs;
+      # enter it at /setup to create the administrator password (see docker compose logs artex).
+      # ARTEX_ADMIN_PASSWORD initializes the password directly without /setup (at least 8 characters).
       ARTEX_SETUP_TOKEN: ${ARTEX_SETUP_TOKEN:-}
       ARTEX_ADMIN_PASSWORD: ${ARTEX_ADMIN_PASSWORD:-}
-      # 브라우저 교차 출처 허용 목록(쉼표 구분). 내장 UI 는 동일 출처라 보통 비워 둡니다.
+      # Browser cross-origin allowlist, comma-separated. Usually blank for the same-origin embedded UI.
       ARTEX_CORS_ORIGINS: ${ARTEX_CORS_ORIGINS:-}
-      # 서버 쪽 기본 출력 언어(ko·en·zh·es). 비우면 한국어입니다. 에이전트 출력·오류 메시지는 설정 화면의
-      # "표시 언어"가 우선하고, 서버 콘솔 로그는 이 값만 따릅니다.
+      # Default server output language (en, ko, zh, es, ja). Defaults to English when empty. Display Language
+      # in Settings overrides agent output and error messages; server console logs follow only this value.
       ARTEX_LANG: ${ARTEX_LANG:-}
     ports:
-      # 기본값은 호스트의 127.0.0.1 에만 게시합니다. 다른 기기에서 직접 접속하려면 .env 에
-      # ARTEX_BIND=0.0.0.0 을 두되, 그 전에 반드시 초기 설정(관리자 비밀번호)을 마치고
-      # 가능하면 README 의 리버스 프록시(HTTPS) 구성을 쓰십시오.
+      # Published only on host address 127.0.0.1 by default. For direct access from other devices,
+      # set ARTEX_BIND=0.0.0.0 in .env after completing initial setup (administrator password).
+      # Use the HTTPS reverse proxy configuration in README where possible.
       - "${ARTEX_BIND:-127.0.0.1}:8787:8787"
       - "127.0.0.1:8788:8788"
     volumes:
-      # 데이터 디렉터리(jwt.key, SQLite 등 포함)를 프로젝트 루트의 data/ 에 바인드합니다.
-      # 호스트에서 바로 확인·백업할 수 있고, 컨테이너를 다시 만들어도 사라지지 않습니다.
+      # Bind the data directory (including jwt.key and SQLite) to data/ in the project root.
+      # This allows direct inspection and backups on the host and survives container recreation.
       - ./data:/app/data
-      # 프로젝트 루트의 skills 를 컨테이너에 마운트합니다(이미지에 내장된 /app/skills 를 덮어씁니다).
-      # skill 을 고치면 이미지를 다시 빌드할 필요 없이, 컨테이너가 호스트의 이 파일을 그대로 읽습니다.
+      # Mount skills from the project root, replacing /app/skills bundled in the image.
+      # The container reads these host files directly, so skill changes do not require an image rebuild.
       - ./skills:/app/skills
     restart: unless-stopped
 

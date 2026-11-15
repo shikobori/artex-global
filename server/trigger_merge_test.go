@@ -9,7 +9,8 @@ import (
 // fix: the task-context header (description + goal) is rendered ONCE per task, no
 // matter how many same-task fires are merged.
 
-const longGoal = "拿到题目 f2-05 的受保护 flag 并通过 submit_flag 提交；本题密文已高度收敛，flag 只能由二进制内嵌数据派生……" // 代表那段几千字的继承事实
+// Keep multilingual user payloads intact while generated framing uses English.
+const longGoal = "拿到题目 f2-05 的受保护 flag 并通过 submit_flag 提交；本题密文已高度收敛，flag 只能由二进制内嵌数据派生……" // Represents several thousand characters of inherited facts
 
 func sameTaskFires(n int) []triggeredRun {
 	items := make([]triggeredRun, n)
@@ -27,7 +28,7 @@ func TestMergeAllRunsWritesTaskGoalOnce(t *testing.T) {
 	if got := strings.Count(out.message, longGoal); got != 1 {
 		t.Fatalf("same-task goal should appear exactly once in a merged-all run, got %d", got)
 	}
-	if strings.Count(out.message, "── 触发 ") < 1 || !strings.Contains(out.message, "触发 39") {
+	if strings.Count(out.message, "── Trigger ") < 1 || !strings.Contains(out.message, "Trigger 39") {
 		t.Fatalf("all 39 event bodies should be present: %q", out.message)
 	}
 	// A merged run embeds its header inline, so finalTriggerMessage must not re-add it.
@@ -52,10 +53,10 @@ func TestMergeAllRunsGroupsInterleavedTasks(t *testing.T) {
 	if got := strings.Count(out.message, "GOAL_B"); got != 1 {
 		t.Fatalf("task #2 goal should appear once despite interleaving, got %d", got)
 	}
-	if !strings.Contains(out.message, "共 2 个任务") {
+	if !strings.Contains(out.message, "2 tasks in total") {
 		t.Fatalf("header should report 2 tasks: %q", out.message)
 	}
-	if got := strings.Count(out.message, "── 触发 "); got != 4 {
+	if got := strings.Count(out.message, "── Trigger "); got != 4 {
 		t.Fatalf("all 4 event bodies should be present, got %d", got)
 	}
 }
@@ -73,7 +74,7 @@ func TestFinalTriggerMessageSingleFirePrependsHeaderOnce(t *testing.T) {
 	if got := strings.Count(msg, longGoal); got != 1 {
 		t.Fatalf("single fire should carry the task goal exactly once, got %d", got)
 	}
-	if !strings.HasPrefix(msg, "【任务 #72") {
+	if !strings.HasPrefix(msg, "【Task #72") {
 		t.Fatalf("single fire should be prefixed with the task-context header: %q", msg)
 	}
 }
@@ -92,25 +93,21 @@ func TestTaskContextHeaderEmptyForIntervalFire(t *testing.T) {
 func TestTaskContextHeaderTruncatesLongGoal(t *testing.T) {
 	huge := strings.Repeat("很", 5000)
 	h := taskContextHeader(72, "d", huge)
-	if len([]rune(h)) > 800 { // 200 desc + 500 goal + 截断标记/装饰，远小于 5000
+	if len([]rune(h)) > 800 { // 200 desc + 500 goal + truncation marker/decoration, far below 5000
 		t.Fatalf("header should be bounded even for a huge goal, got %d runes", len([]rune(h)))
 	}
 }
 
-// TestTriggerSynthesisChineseFramingPreserved 는 P3 트리거 메시지 합성부가 만드는 중국어
-// 프레이밍을 보존 대상(에이전트 두뇌 입력)으로 명시 고정한다(F10/F19 경계 판정). 이 문구들은
-// finalTriggerMessage → runTriggeredRun → ca.Chat 의 user 메시지로 들어가는 에이전트 입력이자
-// 전사에 노출되는 이중 용도라, BRIEF 경계 #1(두뇌는 번역하지 않는다 — 벤치마크 동작 보존)에
-// 따라 번역하면 안 된다. 위 머지/헤더 동작 테스트가 `【任务 #`·`── 触发 `·`共 N 个任务` 를
-// 이미 핀하지만, 작업 컨텍스트 헤더의 목표 프레이밍과 by-task 머지 안내는 아직 미핀이라
-// 여기서 보강한다(우발 한국어화 역회귀 가드 · conversations.go 보존 주석과 짝).
-func TestTriggerSynthesisChineseFramingPreserved(t *testing.T) {
-	// 작업 컨텍스트 헤더의 목표 프레이밍(（目标：…）) 보존 — 입력에 CJK 를 안 넣어 프레이밍만 검증.
-	if h := taskContextHeader(7, "d", "g"); !strings.Contains(h, "（目标：") {
-		t.Fatalf("작업 컨텍스트 헤더의 목표 프레이밍이 바뀌었습니다(두뇌 입력 번역 금지): %q", h)
+// TestTriggerSynthesisEnglishFraming verifies English framing for trigger messages
+// sent through finalTriggerMessage → runTriggeredRun → ca.Chat and the transcript.
+// It covers goal framing and the by-task merge notice alongside the tests above.
+func TestTriggerSynthesisEnglishFraming(t *testing.T) {
+	// Check goal framing with ASCII inputs to isolate the generated header.
+	if h := taskContextHeader(7, "d", "g"); !strings.Contains(h, "(Goal:") {
+		t.Fatalf("unexpected goal framing in task context header: %q", h)
 	}
-	// by-task 머지 안내 프레이밍 보존.
-	if out := mergeTriggeredRuns(sameTaskFires(3)); !strings.Contains(out.message, "【本会话合并了") {
-		t.Fatalf("by-task 머지 안내 프레이밍이 바뀌었습니다(두뇌 입력 번역 금지): %q", out.message)
+	// Check the by-task merge notice.
+	if out := mergeTriggeredRuns(sameTaskFires(3)); !strings.Contains(out.message, "this conversation merges 3 trigger events") {
+		t.Fatalf("unexpected by-task merge notice framing: %q", out.message)
 	}
 }

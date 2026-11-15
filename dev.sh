@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# 개발 모드: 백엔드(127.0.0.1:8787) + 트래픽 프록시(:8788) 를 프런트엔드 next dev(:5173) 와 함께 실행합니다.
-# 프런트엔드 /api 는 백엔드로 리버스 프록시됩니다. Ctrl-C 로 함께 종료합니다.
+# Development mode: run the backend (127.0.0.1:8787) and traffic proxy (:8788) with next dev (:5173).
+# Frontend /api requests are reverse-proxied to the backend. Ctrl-C stops both processes.
 #
-# 단일 바이너리(프런트엔드 내장) 방식은 README 의 "단일 바이너리" 절을 참고하세요. 이 스크립트를 쓰지 않습니다.
+# For a single binary with an embedded frontend, see the single-binary section in README instead of using this script.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# 종료 시 이 프로세스 그룹의 모든 자식 프로세스(백엔드 + 프런트엔드)를 끝냅니다.
+# Stop all child processes in this process group (backend and frontend) on exit.
 cleanup() { kill 0 2>/dev/null || true; }
 trap cleanup EXIT INT TERM
 
-# 백엔드(일반 go run, 프런트엔드 미내장). 동시 work agent 수는 "시스템 설정"에서 설정합니다.
+# Backend (plain go run, without an embedded frontend). Configure concurrent work agents in System Settings.
 go run ./cmd/artex -addr 127.0.0.1:8787 -proxy 127.0.0.1:8788 &
 
-# 프런트엔드 핫 리로드(Vite/Next dev server, /api 는 :8787 로 리버스 프록시).
+# Frontend hot reload (Vite/Next dev server, with /api reverse-proxied to :8787).
 ( cd web && npm run dev ) &
 
-echo "[dev] 백엔드 :8787 / 프록시 :8788 / 프런트엔드 http://localhost:5173  (Ctrl-C 로 종료)"
+echo "[dev] Backend :8787 / Proxy :8788 / Frontend http://localhost:5173  (Ctrl-C to stop)"
 wait

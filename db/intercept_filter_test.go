@@ -139,3 +139,15 @@ func TestInterceptApprovalFilters(t *testing.T) {
 		}
 	}
 }
+
+// Legacy rows and new English reasons must infer the same source when the field is absent.
+func TestInterceptSourceModelPrefixes(t *testing.T) {
+	for _, reason := range []string{"[Model] fixture", "[模型] fixture"} {
+		if got := interceptSource(0, reason); got != "model" {
+			t.Errorf("interceptSource(0, %q) = %q, want model", reason, got)
+		}
+		if got := interceptSource(1, reason); got != "rule" {
+			t.Errorf("interceptSource(1, %q) = %q, want rule", reason, got)
+		}
+	}
+}

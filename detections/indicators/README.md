@@ -10,10 +10,11 @@ English · [한국어](README.ko.md)
 > **방어·탐지 목적에만** 사용하십시오. 한국어 전체 문서는 **[README.ko.md](README.ko.md)** 를
 > 보십시오.
 
-A single, machine-readable list of the unique fingerprints ARTEX itself emits, for defenders who want the
+A single, machine-readable list of the unique fingerprints ARTEX emits or emitted in earlier releases, for defenders who want the
 atomic indicators rather than the detection logic: drop [`artex_indicators.csv`](artex_indicators.csv)
 into a threat-intelligence platform, a SIEM lookup table, or a host-triage checklist. Every value is a
-string verified in this repository's source — the same grounding the
+string verified in this repository's source or, for the legacy guard marker, a preserved historical
+event fixture — the same grounding the
 [detection rules](../README.md) and the defense guide
 ([Korean](../../docs/defense-ko.md) · [English](../../docs/defense-en.md), section 2) rely on — and each
 row records where it comes from and which rule (if any) is built on it.
@@ -30,9 +31,14 @@ row records where it comes from and which rule (if any) is built on it.
   purpose; mixing them produces false conclusions.
 - **`source`** — the repository-relative source file(s) that emit the value, `;`-separated. This is the
   grounding: if an upstream re-sync changes the emitter, the indicator here must change with it.
+  The legacy guard-marker row cites its preserved historical event fixture instead of a current emitter.
 - **`rule`** — the detection rule(s) built on the exact value, `;`-separated, or empty for host-forensic
   indicators that are triaged directly rather than shipped as a (noisy) rule.
 - **`description`** — a one-line note, including the honest caveat where one applies.
+
+The current guard marker is `[ARTEX platform control, not target defense]`. The legacy Chinese
+marker `【ARTEX 平台管控·非目标防御】` remains a separate indicator so older audit logs stay detectable.
+Sigma rules, the host-triage tool, and both exports recognize both versions.
 
 ## MISP event export
 

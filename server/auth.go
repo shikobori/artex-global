@@ -42,31 +42,29 @@ const (
 	setupTokenLen    = 32
 )
 
-// 인증 엔드포인트가 HTTP 응답으로 돌려주는 사용자 노출 문구다. 한국어 UI 에서 로그인·
-// 비밀번호 설정이 실패하면 이 문구가 그대로 토스트로 뜨므로 한국어로 둔다. 자격 증명
-// 오류 문구는 로그인 화면(web messages auth.login.errorCredential)과 표기를 맞췄다.
-// token 은 기술 용어라 원문 그대로 둔다(로그·주석은 BRIEF 방침상 최하위라 손대지 않음).
+// User-facing authentication response messages, displayed by the login and password setup UI.
+// Keep credential error wording consistent with the login screen.
 const (
-	authErrUnauthorized         = "인증이 필요합니다"
-	authErrTokenInvalid         = "token 이 유효하지 않거나 만료되었습니다"
-	authErrPasswordAlreadySet   = "비밀번호가 이미 설정되어 있습니다"
-	authErrPasswordEmpty        = "비밀번호를 입력해 주세요"
-	authErrPasswordTooShort     = "비밀번호는 최소 8자 이상이어야 합니다"
-	authErrPasswordTooLong      = "비밀번호는 72바이트를 넘을 수 없습니다"
-	authErrNewPasswordEmpty     = "새 비밀번호를 입력해 주세요"
-	authErrPasswordHash         = "비밀번호 암호화에 실패했습니다"
-	authErrSaveFailedPrefix     = "저장에 실패했습니다: "
-	authErrTokenGen             = "token 생성에 실패했습니다"
-	authErrBadRequest           = "요청 형식이 올바르지 않습니다"
-	authErrPasswordNotInit      = "비밀번호가 초기화되지 않았습니다. 먼저 비밀번호를 설정해 주세요"
-	authErrCurrentPasswordWrong = "현재 비밀번호가 올바르지 않습니다"
-	authErrBadCredential        = "사용자 이름 또는 비밀번호가 올바르지 않습니다"
-	authErrSetupTokenInvalid    = "설정 토큰이 올바르지 않습니다. 서버 콘솔 로그의 [auth] 줄에 출력된 설정 토큰을 입력해 주세요"
-	authErrTooManyAttempts      = "실패한 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요"
-	// 비밀번호 관련 읽기가 실패했을 때 돌려주는 공통 문구다. 이 핸들러들은 "읽지 못함"을
-	// "설정되지 않음"으로 취급하면 안 된다: 그렇게 취급하면 데이터베이스 장애 중에 초기화
-	// 입구가 열려, 인증되지 않은 요청이 이미 설정된 관리자 비밀번호를 덮어쓸 수 있다.
-	authErrDataSourceUnavailable = "데이터 소스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요"
+	authErrUnauthorized         = "Authentication is required"
+	authErrTokenInvalid         = "The token is invalid or has expired"
+	authErrPasswordAlreadySet   = "A password has already been set"
+	authErrPasswordEmpty        = "Enter a password"
+	authErrPasswordTooShort     = "The password must be at least 8 characters"
+	authErrPasswordTooLong      = "The password must not exceed 72 bytes"
+	authErrNewPasswordEmpty     = "Enter a new password"
+	authErrPasswordHash         = "Failed to encrypt the password"
+	authErrSaveFailedPrefix     = "Failed to save: "
+	authErrTokenGen             = "Failed to generate a token"
+	authErrBadRequest           = "The request format is invalid"
+	authErrPasswordNotInit      = "The password has not been initialized. Set a password first"
+	authErrCurrentPasswordWrong = "The current password is incorrect"
+	authErrBadCredential        = "Incorrect username or password"
+	authErrSetupTokenInvalid    = "The setup token is incorrect. Enter the setup token printed on the [auth] line of the server console log"
+	authErrTooManyAttempts      = "Too many failed attempts. Try again later"
+	// Common response when reading password settings fails. A failed read must never be treated
+	// as an unset password: doing so could let unauthenticated requests overwrite an existing
+	// administrator password during a database outage.
+	authErrDataSourceUnavailable = "The data source is temporarily unavailable. Try again shortly"
 )
 
 // loadOrCreateJWTKey reads the 32-byte signing key from keyDir/jwt.key. keyDir is
@@ -482,9 +480,9 @@ func (s *Server) authStatus(w http.ResponseWriter, r *http.Request) {
 	if pg == nil {
 		return
 	}
-	// 읽기 실패는 initialized:false 가 아니라 503 이어야 한다: 프런트는 initialized:false 를
-	// 보고 사용자를 /setup 으로 보내는데, 데이터베이스 장애를 200 으로 포장하면 사용자를
-	// 기존 비밀번호 덮어쓰기 경로로 밀어넣는 셈이 된다.
+	// A read failure must return 503, not initialized:false. The frontend redirects uninitialized
+	// users to /setup, so disguising a database outage as a successful read would route users
+	// toward overwriting the existing password.
 	hash, _, err := pg.GetSetting(authPassKey)
 	if err != nil {
 		writeErr(w, 503, authErrDataSourceUnavailable)
@@ -556,9 +554,9 @@ func (s *Server) authInit(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, authErrPasswordHash)
 		return
 	}
-	// upsert 대신 INSERT ... ON CONFLICT DO NOTHING: 위 GetSetting 검사는 빠른 실패
-	// 경로일 뿐이고, "최초 1회만 설정" 의 실제 보장은 기본키 제약에 있다. bcrypt 가 수십
-	// 밀리초를 쓰는 동안 다른 요청이 먼저 설정할 수 있고, 읽기 검사가 장애로 무력해질 수도 있다.
+	// Use INSERT ... ON CONFLICT DO NOTHING rather than upsert: GetSetting above only provides
+	// a fast failure path; the primary key enforces one-time setup. Another request may set
+	// the password during bcrypt processing, or a database failure may defeat the read check.
 	inserted, err := pg.InsertSettingIfAbsent(authPassKey, string(hash))
 	if err != nil {
 		writeErr(w, 500, trMsg(authErrSaveFailedPrefix)+err.Error())

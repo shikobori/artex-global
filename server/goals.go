@@ -12,14 +12,12 @@ import (
 	"github.com/Autumn-27/artex/db"
 )
 
-// admitPausedTask 재개 경로(requirePaused)의 사전 조건 검증 오류 문구다. 두 문구는
-// 단건(server.go:1194 → writeErr 409)·배치(task_control.go:298 → items[].error) 작업 제어
-// 응답으로만 사용자에게 노출된다. 오케스트레이터 경로(orchestration.go:343)는 action="pause"
-// 로 고정이라 재개 검증에 닿지 않으므로 두뇌 입력이 아니다. 용어는 task_control.go 의
-// 종료 상태·일시정지 문구와 맞춘다(resume=재개).
+// Preconditions for admitPausedTask(requirePaused). These messages appear in
+// single-task and batch control responses. The orchestration pause path does not
+// reach resume validation; wording is shared with task-control errors.
 const (
-	errGoalResumeTerminal  = "종료된 작업은 재개할 수 없습니다"
-	errGoalResumeNotPaused = "일시정지된 작업만 재개할 수 있습니다"
+	errGoalResumeTerminal  = "A terminated task cannot be resumed"
+	errGoalResumeNotPaused = "Only paused tasks can be resumed"
 )
 
 type goalSpec struct {
@@ -28,21 +26,20 @@ type goalSpec struct {
 }
 
 // launchTask runs the shared post-creation sequence for a task created via ANY
-// path (HTTP createTask 或 orchestration spawn_task),避免两处复制粘贴:
-//  1. seed 根资产,喂给事件驱动 loop;
-//  2. 可选种子意图,worker 免等首轮 planner 直接开跑;
-//  3. 后台异步做目标分解(发「0차 목표 분해」round + LLM 分解步骤 + 逐条 goal,页面可见),
-//     分解完再 engine.Run —— 引擎在 goal 节点就绪后才启动,避免 planner 抢在 goal 之前跑的竞态。
+// path (HTTP createTask or orchestration spawn_task) to avoid duplication:
+//  1. Seed root assets for the event-driven loop.
+//  2. Optionally seed intents so workers can start before initial planning.
+//  3. Decompose goals asynchronously, emitting a visible round marker and goals,
+//     then start engine.Run only after goal nodes exist to avoid a planning race.
 //
-// 异步(goroutine)所以调用方立即返回,两条路径行为一致:秒建任务、后台拆目标。
-// 표시 전용 활동 요약(작업 단위·node_id 없음·전사에만 노출·되먹임 경로 미접촉).
-// 초기 목표 분해 라운드와 동시 실행 대기열 상태 안내다. 한국어화해도 두뇌 입력
-// (BRIEF 경계 #1)을 건드리지 않는다. 포맷 인자(%d)는 원형 보존. [[G132]]
+// Both callers return immediately while goal decomposition runs in the background.
+// The following task-level activity summaries appear only in the transcript;
+// without node_id, they are not read back into agent context.
 const (
-	goalBreakdownRound0Summary       = "0차 목표 분해"
-	queuedConcurrencyLimitSummaryFmt = "대기열 등록: 동시 실행 상한 %d개에 도달해, 빈자리가 나면 자동으로 시작합니다"
-	queuedNoLLMSummary               = "대기열 등록: 현재 실행 가능한 LLM 설정이 없어, 설정이 복구되면 자동으로 시작합니다"
-	queuedFIFOSummary                = "대기열 등록: 먼저 대기 중인 작업이 있어, FIFO 순서대로 자동으로 시작합니다"
+	goalBreakdownRound0Summary       = "Goal decomposition round 0"
+	queuedConcurrencyLimitSummaryFmt = "Queued: the concurrency limit of %d has been reached; execution will start automatically when a slot opens"
+	queuedNoLLMSummary               = "Queued: no runnable LLM configuration is available; execution will start automatically when configuration is restored"
+	queuedFIFOSummary                = "Queued: earlier tasks are waiting; execution will start automatically in FIFO order"
 )
 
 func (s *Server) launchTask(t *Task, seedText string, seedFirstIntent bool) {
@@ -197,8 +194,8 @@ func (s *Server) admitTaskWhen(t *Task, mode string, requirePaused bool) (queued
 	// this ordering, its already-running worker loops can claim the newly-opened
 	// intent in the gap between status=running and queued=true.
 	if shouldQueue || wasTerminal || wasPaused || wasQueued {
-		s.engine.Pause(t.ID, agent.Causef("queued_for_admission", "任务等待运行准入",
-			"任务正在等待并发队列或准入状态提交，本次执行已停止；只有获得运行槽后才会重新领取意图"))
+		s.engine.Pause(t.ID, agent.Causef("queued_for_admission", "Task awaiting admission to run",
+			"The task is waiting for the concurrency queue or admission state to be committed. This execution has stopped; intent claiming resumes only after a run slot is acquired"))
 	}
 
 	status := lifecycle.Status
@@ -286,8 +283,8 @@ func (s *Server) reconcileConcurrency() {
 				continue
 			}
 			mode := s.resumeAdmissionMode(task)
-			s.engine.Pause(task.ID, agent.Causef("llm_unavailable_queued", "LLM 不可用，任务进入等待队列",
-				"任务当前无法解析可运行的 Planner/Worker LLM，已释放并发槽；配置恢复后按队列顺序继续"))
+			s.engine.Pause(task.ID, agent.Causef("llm_unavailable_queued", "LLM unavailable; task queued",
+				"No runnable Planner/Worker LLM can be resolved. The concurrency slot has been released; execution resumes in queue order when configuration is restored"))
 			if err := s.m.EnqueueTask(task.ID, mode); err != nil {
 				s.engine.Resume(task)
 				log.Printf("[concurrency] task %s failed to enqueue because LLM is unavailable: %v", task.ID, err)
@@ -366,12 +363,11 @@ func (s *Server) reconcileConcurrency() {
 	}
 }
 
-// reviveTask 让一个已停下的任务重新跑起来:把终态(done/failed/timeout)拉回 running、
-// 解除暂停,并(重)启动引擎循环 + 唤醒。已在 running 且未暂停的任务:只剩 Run 里的一次
-// Notify,近乎无副作用。用于「主 agent set_goals 新增目标」和「重跑 blocked 意图」两处。
-//
-// 为什么必须显式复活:planner/worker 循环的终态门(engine.go)会吞掉普通 notify——光改
-// 图 + Notify 唤不醒已判完成的任务;重启后终态任务的 goroutine 也可能已不在,故还要 Run。
+// reviveTask returns a terminal (done/failed/timeout) task to running, clears pause,
+// restarts engine loops, and wakes them. Already-running tasks only receive Notify.
+// Used when the main agent adds goals or a blocked intent is rerun.
+// A plain Notify cannot bypass terminal gates, and after restart the terminal
+// task may have no goroutines, so engine.Run is required as well.
 func (s *Server) reviveTask(t *Task) {
 	if t == nil {
 		return

@@ -13,25 +13,27 @@ import (
 )
 
 // TestErrCatalogFormatVerbsMatch pins that translated API error templates keep the
-// Korean template's format verbs in order; trMsg wraps the template before
+// English template's format verbs in order; trMsg wraps the template before
 // fmt.Sprintf/Errorf fill it, so a mismatch would garble the response.
 func TestErrCatalogFormatVerbsMatch(t *testing.T) {
 	verbs := regexp.MustCompile(`%[-+# 0-9.]*[a-zA-Z%]`)
-	for ko, tr := range errCatalog {
-		want := strings.Join(verbs.FindAllString(ko, -1), " ")
+	for source, tr := range errCatalog {
+		assertEnglishError(t, "catalog source", source)
+		want := strings.Join(verbs.FindAllString(source, -1), " ")
 		for lang, v := range tr {
 			if got := strings.Join(verbs.FindAllString(v, -1), " "); got != want {
-				t.Errorf("errCatalog[%q][%s] verbs = %q, want %q", ko, lang, got, want)
+				t.Errorf("errCatalog[%q][%s] verbs = %q, want %q", source, lang, got, want)
 			}
 		}
 	}
 }
 
 // TestAuthErrorsTranslated pins that every authErr* message the auth endpoints
-// return has an en/zh/es translation, so a non-Korean user who fails a login or
+// return has a ko/zh/es/ja translation, so a user who fails a login or
 // the first-run setup sees the error in the chosen language.
 func TestAuthErrorsTranslated(t *testing.T) {
-	t.Cleanup(func() { config.CurrentLanguage = nil })
+	previousLanguage := config.CurrentLanguage
+	t.Cleanup(func() { config.CurrentLanguage = previousLanguage })
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "auth.go", nil, 0)
 	if err != nil {
@@ -59,7 +61,7 @@ func TestAuthErrorsTranslated(t *testing.T) {
 	if len(msgs) == 0 {
 		t.Fatal("found no authErr constants; the scan is broken")
 	}
-	for _, lang := range []string{"en", "zh", "es"} {
+	for _, lang := range []string{"ko", "zh", "es", "ja"} {
 		config.CurrentLanguage = func() string { return lang }
 		for _, m := range msgs {
 			if trMsg(m) == m {

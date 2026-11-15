@@ -55,15 +55,15 @@ export default function SystemSettingsPage() {
   const [pyInterp, setPyInterp] = React.useState("");
   const [workers, setWorkers] = React.useState("3");
   const [savingWorkers, setSavingWorkers] = React.useState(false);
-  // 操作约束注入范围(默认都开)。
+  // Operational constraint injection scope (enabled for both by default).
   const [injectPlanner, setInjectPlanner] = React.useState(true);
   const [injectWorker, setInjectWorker] = React.useState(true);
-  // 实验功能:noa 上下文压缩(默认关)。
+  // Experimental noa context compression (disabled by default).
   const [noaCompaction, setNoaCompaction] = React.useState(false);
-  // 纯前端偏好：不走 /api/settings，直接读写 localStorage。
+  // Frontend-only preferences: read/write localStorage directly, without /api/settings.
   const sendMode = useChatSendMode();
   const sendModeOptions = useChatSendModeOptions();
-  // 표시 언어도 순수 프런트엔드 환경설정이라 /api/settings 를 거치지 않고 쿠키·localStorage 로만 둔다.
+  // Display language is also frontend-only, stored in cookies/localStorage without /api/settings.
   const activeLocale = useActiveLocale();
 
   const apply = React.useCallback((s: Settings) => {
@@ -118,9 +118,9 @@ export default function SystemSettingsPage() {
       .catch(() => undefined)
       .finally(() => setSaving(false));
   };
-  // 표시 언어 변경: UI 는 브라우저 로컬 설정이라 즉시 전환하고, 에이전트가 생성하는
-  // 리포트·요약·대화 응답의 언어(서버 설정 output_language)도 같은 값으로 맞춘다. 서버
-  // 저장이 실패해도 UI 전환은 그대로 유지하고 오류만 알린다.
+  // Display language changes immediately via browser-local preferences. Also align the server's output_language
+  // setting for agent-generated reports, summaries, and conversation responses. If server persistence fails,
+  // keep the UI language change and report the error.
   const changeLanguage = (v: string) => {
     const loc = v as Locale;
     setActiveLocale(loc);
@@ -292,10 +292,10 @@ export default function SystemSettingsPage() {
         <p className="text-muted-foreground text-sm">{t("subtitle")}</p>
       </div>
 
-      {/* 多列而非 grid：网络搜索卡片比其余高数倍，且高度随所选后端变化（brave/tavily
-          的 key 输入是条件渲染）。grid 会按最高的一张撑满整行、在旁边留下大片空白，
-          多列则自动按内容高度平衡填充。卡片间距靠 mb 而非 gap——多列布局下
-          column-gap 只管列间距，行间距要由子元素自己给。 */}
+      {/* Use multiple columns: the web search card is much taller and changes height with the selected backend (brave/tavily
+          key inputs render conditionally). A grid stretches each row to its tallest card and leaves large empty areas;
+          columns balance content by height. Use mb for card spacing because column-gap
+          only controls horizontal gaps; children must supply vertical spacing. */}
       <div className="columns-1 gap-4 md:gap-6 lg:columns-2">
         <UpdateCard />
 

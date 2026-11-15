@@ -21,20 +21,20 @@ import {
 import type { NavMainItem } from "@/navigation/sidebar/sidebar-items";
 import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
 
-// 표시 문자열은 데이터에 담지 않고 nav 네임스페이스 키만 담아 둔다. 실제 라벨·헤딩은
-// 컴포넌트에서 useTranslations("nav") 로 렌더 시점에 번역한다(사이드바와 같은 메시지 원천).
+// Store nav namespace keys instead of display strings. The component translates labels and headings
+// at render time with useTranslations("nav"), using the same message source as the sidebar.
 type SearchItem = {
   id: string;
-  headingKey: string; // nav 기준 상대 키 (그룹 헤딩). 예) "group.function"
-  labelKey: string; // nav 기준 상대 키 (항목 라벨). 예) "item.dashboard"
-  fallbackLabel: string; // 메시지에 키가 없을 때 쓸 원문
+  headingKey: string; // Relative nav key for the group heading, e.g. "group.function".
+  labelKey: string; // Relative nav key for the item label, e.g. "item.dashboard".
+  fallbackLabel: string; // Original label to use when the message key is missing.
   url: string;
   icon?: NavMainItem["icon"];
   disabled?: boolean;
   newTab?: boolean;
 };
 
-// 그룹 번호 → nav.group.* 키. nav-main 과 같은 매핑을 쓴다.
+// Map group numbers to nav.group.* keys, using the same mapping as nav-main.
 const GROUP_MESSAGE_KEY: Record<number, string> = { 1: "function", 2: "system" };
 function groupHeadingKey(groupId: number): string {
   const k = GROUP_MESSAGE_KEY[groupId];

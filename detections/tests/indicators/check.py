@@ -33,7 +33,8 @@
 #
 # It then validates the published, machine-readable indicator list
 # (detections/indicators/artex_indicators.csv): every row's value must still be
-# present in the source file(s) it cites and pinned in the rule(s) it cites, and
+# present in the source file(s) it cites (or a preserved fixture for legacy values)
+# and pinned in the rule(s) it cites, and
 # every fingerprint this test grounds must appear in the list — so the artifact a
 # defender imports cannot silently drift from the source it claims to come from.
 #
@@ -80,7 +81,7 @@ INDICATORS = [
     },
     {
         "label": "platform-guard audit framing marker",
-        "value": "【ARTEX 平台管控·非目标防御】",
+        "value": "[ARTEX platform control, not target defense]",
         "sources": ["guard/guard.go"],
         "rules": ["detections/sigma/artex_guard_audit_framing.yml"],
     },

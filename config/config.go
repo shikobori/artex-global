@@ -58,23 +58,21 @@ func NormalizeLanguage(code string) string {
 // CurrentLanguage, when wired by the server, returns the active user-facing
 // output language picked at runtime (settings table) layered over the bootstrap
 // default. It is the single source backend display strings (enum labels, etc.)
-// read through ActiveLanguage. nil (unit tests / standalone) → ActiveLanguage
-// falls back to "ko", which keeps the Korean localization golden tests green.
+// read through ActiveLanguage. When the hook is absent, ActiveLanguage uses
+// DefaultLanguage, including in tests and standalone callers.
 var CurrentLanguage func() string
 
 // ActiveLanguage resolves the language for backend display strings. Precedence:
-// the runtime hook (settings table, via the server) over an unwired fallback of
-// "ko". Production always wires CurrentLanguage, so a fresh deploy resolves to the
-// configured default (DefaultLanguage = "en") through that hook; the "ko" fallback
-// only applies when the hook is absent (unit tests / standalone), so the Korean
-// localization golden tests hold without each having to pin the language.
+// the runtime hook (settings table, via the server) over DefaultLanguage.
+// An absent hook or an unsupported language uses the same English default as
+// a fresh deployment. Explicit runtime language selections still take precedence.
 func ActiveLanguage() string {
 	if CurrentLanguage != nil {
 		if v := NormalizeLanguage(CurrentLanguage()); v != "" {
 			return v
 		}
 	}
-	return "ko"
+	return DefaultLanguage
 }
 
 // Language resolves the default user-facing output language with precedence:

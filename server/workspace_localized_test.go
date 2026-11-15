@@ -9,9 +9,8 @@ import (
 	"testing"
 )
 
-// TestWorkspaceErrorConstantsLocalized guards F3b (workspace.go): every user-facing
-// error string the workspace file manager hands back must be Korean (Hangul present,
-// no Chinese Han). Reverting any literal to Chinese fails this test. The constants
+// TestWorkspaceErrorConstantsLocalized verifies that every user-facing
+// error string returned by the workspace file manager is English. The constants
 // are DB-independent, so this always runs (no postgres needed).
 func TestWorkspaceErrorConstantsLocalized(t *testing.T) {
 	for label, msg := range map[string]string{
@@ -26,7 +25,7 @@ func TestWorkspaceErrorConstantsLocalized(t *testing.T) {
 		"uploadParse":      errWsUploadParse,
 		"noUploadFile":     errWsNoUploadFile,
 	} {
-		assertKoreanError(t, label, msg)
+		assertEnglishError(t, label, msg)
 	}
 }
 
@@ -37,15 +36,15 @@ func wsErrBody(t *testing.T, rec *httptest.ResponseRecorder) string {
 		Error string `json:"error"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-		t.Fatalf("응답 JSON 파싱 실패: %v (본문 %q)", err, rec.Body.String())
+		t.Fatalf("failed to parse response JSON: %v (body %q)", err, rec.Body.String())
 	}
 	return out.Error
 }
 
 // TestWorkspaceHandlerResponsesLocalized drives the workspace file-manager handlers
 // over real HTTP. They only touch s.m.dir and the filesystem (never s.m.pg), so a
-// temp-dir Manager is enough — no DB. This proves the Korean constants actually land
-// in the HTTP response body, not just that the constants are Korean.
+// temp-dir Manager is enough — no DB. This proves the English constants actually land
+// in the HTTP response body, not just that the constants are English.
 func TestWorkspaceHandlerResponsesLocalized(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0o755); err != nil {
@@ -78,13 +77,13 @@ func TestWorkspaceHandlerResponsesLocalized(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c.handler(rec, c.req)
 			if rec.Code != c.code {
-				t.Fatalf("status = %d, want %d (본문 %q)", rec.Code, c.code, rec.Body.String())
+				t.Fatalf("status = %d, want %d (body %q)", rec.Code, c.code, rec.Body.String())
 			}
 			got := wsErrBody(t, rec)
 			if got != c.want {
 				t.Fatalf("error = %q, want %q", got, c.want)
 			}
-			assertKoreanError(t, c.name, got)
+			assertEnglishError(t, c.name, got)
 		})
 	}
 }

@@ -25,20 +25,19 @@ import (
 	"github.com/Autumn-27/artex/db"
 )
 
-// 사용자에게 노출되는 가로채기 판정·승인 메시지(한국어). judge 판정 결과·규칙 메시지는
-// 승인 기록(reason)·활동 스트림·409 응답으로 표시된다. 성능에 영향을 주는 에이전트 두뇌
-// (판정 프롬프트 본문)는 번역하지 않으며, [模型] 센티넬(decision_source 분류용 · UI 에서
-// 표시 전 제거 · db SQL LIKE·HasPrefix 소비처와 결합)도 원문 그대로 둔다.
+// User-facing interception verdict and approval messages appear in approval
+// records, the activity stream, and HTTP 409 responses. New verdicts use the
+// English source marker; historical markers remain recognized below.
 const (
-	msgReviewContextIncomplete = "검토 맥락이 완전하지 않아 사람의 확인이 필요합니다: "
-	msgModelApprovalFailed     = "모델 승인에 실패하여 실패 정책에 따라 처리합니다: "
-	msgModelOutputUnparsable   = "모델 출력을 해석할 수 없어 실패 정책에 따라 처리합니다"
-	msgToolApprovalRequestFmt  = "도구 %s 승인 요청 (#%d)"
-	reasonWorkCanceled         = "작업이 취소되었습니다"
-	reasonWorkCanceledPreExec  = "실행 전에 작업이 취소되었습니다"
-	reasonApprovalTimeout      = "승인 시간이 초과되어 시간 초과 정책에 따라 처리합니다"
-	reasonManualDeny           = "사람이 실행을 거부했습니다"
-	reasonManualAllow          = "사람이 실행을 허용했습니다"
+	msgReviewContextIncomplete = "The review context is incomplete and requires human confirmation: "
+	msgModelApprovalFailed     = "Model approval failed; applying the failure policy: "
+	msgModelOutputUnparsable   = "Cannot parse model output; applying the failure policy"
+	msgToolApprovalRequestFmt  = "Tool %s approval request (#%d)"
+	reasonWorkCanceled         = "The work was canceled"
+	reasonWorkCanceledPreExec  = "The work was canceled before execution"
+	reasonApprovalTimeout      = "Approval timed out; applying the timeout policy"
+	reasonManualDeny           = "Execution was denied by a human"
+	reasonManualAllow          = "Execution was allowed by a human"
 )
 
 // ctxKey is the unexported context key type to avoid collisions.
@@ -493,9 +492,9 @@ func (i *Interceptor) Judge(ctx context.Context, tool string, arguments json.Raw
 	configJSON, _ := json.Marshal(cfg)
 	out.ConfigDigest = digestInput(configJSON)
 	if out.Message == "" {
-		out.Message = "[模型] " + judgeActionLabel(out.Action)
-	} else if !strings.HasPrefix(out.Message, "[模型]") {
-		out.Message = "[模型] " + out.Message
+		out.Message = "[Model] " + judgeActionLabel(out.Action)
+	} else if !strings.HasPrefix(out.Message, "[Model]") && !strings.HasPrefix(out.Message, "[模型]") {
+		out.Message = "[Model] " + out.Message
 	}
 	if out.Action == "ask" {
 		out.TimeoutEnabled = true
@@ -533,7 +532,7 @@ func (i *Interceptor) Match(toolName string, input []byte) (Decision, bool) {
 	if err != nil {
 		return Decision{
 			Action:  "ask",
-			Message: "拦截规则读取失败，按失败安全策略转人工确认：" + err.Error(),
+			Message: "Failed to read interception rules; requesting human confirmation under the fail-safe policy: " + err.Error(),
 		}, true
 	}
 	if len(rules) == 0 {
@@ -579,9 +578,9 @@ func ruleMatches(r compiledRule, toolName string, input []byte) bool {
 func defaultMessage(action, name string) string {
 	switch action {
 	case "deny":
-		return "가로채기 규칙 [" + name + "] 에 따라 이 도구를 실행할 수 없습니다"
+		return "Interception rule [" + name + "] prevents this tool from running"
 	case "ask":
-		return "가로채기 규칙 [" + name + "] 에 따라 사용자 승인이 필요합니다. 잠시 기다려 주세요"
+		return "Interception rule [" + name + "] requires user approval. Please wait"
 	default:
 		return ""
 	}
@@ -694,7 +693,7 @@ func (i *Interceptor) HandleAsk(ctx context.Context, convID int64, dec Decision,
 	}
 }
 
-var ErrAlreadyDecided = errors.New("이미 처리되었거나 존재하지 않는 승인입니다. 기록을 새로 고쳐 주세요")
+var ErrAlreadyDecided = errors.New("The approval has already been handled or does not exist. Refresh the history")
 
 // Decide resolves a pending request. Called by the HTTP decide endpoint.
 func (i *Interceptor) Decide(pendingID int64, allowed bool) error {

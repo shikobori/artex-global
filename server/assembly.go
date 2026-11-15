@@ -208,7 +208,7 @@ func seedPrompts(pg *db.DB) {
 // edits survive restart) and wires the DB tools table into the agent runtime: at
 // tool-assembly time each built-in tool is filtered by its agent binding / enabled
 // flag and, if kept, wrapped so the model sees the DB-overridden description/schema
-// and缺省入参 get injected. MCP/skill/host tools have no row and pass through.
+// and default arguments get injected. MCP/skill/host tools have no row and pass through.
 func wireTools(pg *db.DB, domainReg map[string]actool.CoreTool) {
 	agent.FindingTrafficBindingEnabled = func() bool { return pg.GetBool(settingAgentTrafficBinding, false) }
 	// Seed the built-in domain tools (first-insert only; DO NOTHING preserves edits).
@@ -235,7 +235,7 @@ func wireTools(pg *db.DB, domainReg map[string]actool.CoreTool) {
 	// bashInteractiveShellNote is appended to Bash's description ONLY for agents whose
 	// interactive_shell is on, so Bash points at shell_open for interactive programs
 	// without ever referencing a tool that isn't injected (§14.1/§14.2).
-	const bashInteractiveShellNote = "\n\n需要【交互输入】的程序（msfconsole / ssh 交互登录 / mysql、psql、python 等 REPL / 密码或 yes/no 提示 / nc 反弹 shell）不要用 Bash（它没有 stdin、会卡住），改用 shell_open 开交互会话（用完 shell_close）。一次性、非交互命令仍用 Bash。"
+	const bashInteractiveShellNote = "\n\nFor programs requiring interactive input (msfconsole / interactive SSH login / mysql, psql, or python REPLs / password or yes/no prompts / nc reverse shells), use shell_open to start an interactive session and shell_close when finished. Do not use Bash: it has no stdin and will hang. Continue using Bash for one-off, noninteractive commands."
 	agent.ToolResolve = func(ctx context.Context, agentKey string, tools []actool.CoreTool) []actool.CoreTool {
 		rows, err := pg.ListTools()
 		if err != nil {
@@ -297,7 +297,7 @@ func wireTools(pg *db.DB, domainReg map[string]actool.CoreTool) {
 			}
 		}
 		if len(shellHints) > 0 {
-			note := "\n\n以下工具已安装在此 bash 环境中，可直接通过 Bash 调用：\n" + strings.Join(shellHints, "\n")
+			note := "\n\nThe following tools are installed in this bash environment and can be invoked directly through Bash:\n" + strings.Join(shellHints, "\n")
 			for i, t := range out {
 				if t.Name() == "Bash" {
 					out[i] = agent.DecorateTool(t, t.Description()+note, t.InputSchema())

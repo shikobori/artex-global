@@ -61,15 +61,19 @@ func TestOutputLanguageCacheFollowsSettings(t *testing.T) {
 	if got := s.outputLanguage(); got != "en" {
 		t.Fatalf("default output language = %q, want en", got)
 	}
-	if got := errOf(do(http.MethodPut, "/api/settings", map[string]any{"output_language": "fr"})); got == errOutputLanguageInvalid || got == "" {
-		t.Fatalf("at the en default the error should be translated out of Korean, got %q", got)
+	if got := errOf(do(http.MethodPut, "/api/settings", map[string]any{"output_language": "fr"})); got != errOutputLanguageInvalid {
+		t.Fatalf("at the en default the error should match the English source %q, got %q", errOutputLanguageInvalid, got)
 	}
 
 	if rec := do(http.MethodPut, "/api/settings", map[string]any{"output_language": "ko"}); rec.Code != http.StatusOK {
 		t.Fatalf("set ko status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	if got := errOf(do(http.MethodPut, "/api/settings", map[string]any{"output_language": "fr"})); got != errOutputLanguageInvalid {
-		t.Fatalf("after switching to ko the error should be the Korean source %q, got %q", errOutputLanguageInvalid, got)
+	wantKorean := errCatalog[errOutputLanguageInvalid]["ko"]
+	if wantKorean == "" {
+		t.Fatal("missing Korean translation for the output-language error")
+	}
+	if got := errOf(do(http.MethodPut, "/api/settings", map[string]any{"output_language": "fr"})); got != wantKorean {
+		t.Fatalf("after switching to ko the error should be the Korean translation %q, got %q", wantKorean, got)
 	}
 	var settings struct {
 		OutputLanguage string `json:"output_language"`

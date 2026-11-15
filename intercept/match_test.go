@@ -45,7 +45,7 @@ func TestMatchFailsSafeOnRuleReadError(t *testing.T) {
 	if dec.Action != "ask" {
 		t.Fatalf("a rule-read error must require human approval (ask), got action %q", dec.Action)
 	}
-	if dec.Message == "" || !strings.Contains(dec.Message, "失败") {
+	if dec.Message == "" || !strings.Contains(dec.Message, "Failed") {
 		t.Fatalf("the message should say the read failed, not read like an ordinary rule hit: %q", dec.Message)
 	}
 }

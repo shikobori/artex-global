@@ -21,19 +21,19 @@ type mcpClient interface {
 	Close() error
 }
 
-// connectMCP 이 돌려주는 전송 설정 검증 오류 네 가지는 사용자 노출이다 —
-// pgRefreshMCP(server_mgmt.go) 가 discoverAndCacheMCP 실패를
-// writeErr(502, errMgmtToolDiscoverFail+err.Error()) 로 응답 본문에 그대로 싣는다.
-// 다른 호출처(assembly.go 의 에이전트 조립·discoverEmptyMCPsOnStartup 시작 자동 발견·
-// sync_scopesentry.go 동기화·pgSaveMCP 추가 직후 발견)는 전부 log.Printf 로만 남기거나
-// 버려서 에이전트 두뇌 입력이 아니다. 그래서 한국어화한다. 전송 방식 enum
-// (stdio/http/sse)과 URL 은 와이어 식별자라 원문을 유지하고, UI mcpPage(전송 방식·명령·
-// 원격 URL)와 표기를 맞춘다.
+// The four transport validation errors from connectMCP are user-facing:
+// pgRefreshMCP (server_mgmt.go) includes discoverAndCacheMCP failures directly in
+// the response body through writeErr(502, errMgmtToolDiscoverFail+err.Error()).
+// Other callers (agent assembly in assembly.go, discoverEmptyMCPsOnStartup,
+// sync_scopesentry.go, and discovery after pgSaveMCP) only log or discard them.
+// These source messages use English. Transport enums
+// (stdio/http/sse) and URLs are wire identifiers and retain their original values.
+// Terminology matches the UI transport, command, and remote-URL labels.
 const (
-	errMCPStdioNoCommand      = "stdio 전송 방식에 명령이 없습니다"
-	errMCPHTTPNoURL           = "http 전송 방식에 URL 이 없습니다"
-	errMCPSSENoURL            = "sse 전송 방식에 URL 이 없습니다"
-	errMCPUnknownTransportFmt = "알 수 없는 전송 방식입니다: %q"
+	errMCPStdioNoCommand      = "The stdio transport has no command"
+	errMCPHTTPNoURL           = "The http transport has no URL"
+	errMCPSSENoURL            = "The sse transport has no URL"
+	errMCPUnknownTransportFmt = "Unknown transport: %q"
 )
 
 // connectMCP dials one MCP server per its transport. Callers must Close the client.

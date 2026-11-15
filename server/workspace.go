@@ -17,25 +17,23 @@ import (
 // shared work dir (s.m.dir), where all agents write their artifacts. Every path is
 // confined to the work dir root (traversal via ".." is neutralised). All routes sit
 // behind requireAuth (see Handler()).
-
 const (
 	maxWorkspaceRead   = 2 << 20   // 2 MiB: files bigger than this aren't inlined for view/edit (download instead)
 	maxWorkspaceUpload = 512 << 20 // 512 MiB per upload request
 )
 
-// 사용자에게 노출되는 오류 문구(한국어). 경로·페이로드·err.Error() 원문은 그대로 둔다.
-// workspace → "작업 공간"(용어집 정본).
+// User-facing workspace error messages. Paths, payloads, and err.Error() are preserved.
 const (
-	errWsIllegalPath      = "잘못된 경로입니다"
-	errWsPathNotFound     = "경로가 존재하지 않습니다"
-	errWsNotDir           = "디렉터리가 아닙니다"
-	errWsFileNotFound     = "파일이 존재하지 않습니다"
-	errWsIsDir            = "디렉터리이므로 파일로 읽을 수 없습니다"
-	errWsTargetIsDir      = "대상 경로가 디렉터리입니다"
-	errWsCannotDeleteRoot = "작업 공간 루트 디렉터리는 삭제할 수 없습니다"
-	errWsUploadDirMissing = "대상 디렉터리가 존재하지 않습니다"
-	errWsUploadParse      = "업로드 처리에 실패했거나 크기 제한을 초과했습니다: " // 뒤에 err.Error() 를 이어 붙인다
-	errWsNoUploadFile     = "업로드할 파일이 없습니다(폼 필드 file)"
+	errWsIllegalPath      = "Invalid path"
+	errWsPathNotFound     = "The path does not exist"
+	errWsNotDir           = "Not a directory"
+	errWsFileNotFound     = "The file does not exist"
+	errWsIsDir            = "It is a directory, so it cannot be read as a file"
+	errWsTargetIsDir      = "The target path is a directory"
+	errWsCannotDeleteRoot = "The workspace root directory cannot be deleted"
+	errWsUploadDirMissing = "The target directory does not exist"
+	errWsUploadParse      = "Failed to process the upload, or it exceeded the size limit: " // Append err.Error() to this prefix
+	errWsNoUploadFile     = "There is no file to upload (form field file)"
 )
 
 // wsResolve maps a user-supplied relative path to an absolute path INSIDE the work
@@ -105,7 +103,7 @@ func (s *Server) wsList(w http.ResponseWriter, r *http.Request) {
 			MTime: info.ModTime().UnixMilli(),
 		})
 	}
-	// 디렉터리를 먼저 두고, 각각 이름순으로 정렬한다.
+	// List directories first, sorting each group by name.
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Dir != out[j].Dir {
 			return out[i].Dir
