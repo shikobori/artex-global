@@ -20,6 +20,13 @@ set -u
 
 cd "$(dirname "$0")" || exit 1
 
+# Load optional settings beside this script and export them to artex.
+if [ -f .env ]; then
+	set -a
+	. ./.env
+	set +a
+fi
+
 BIN=./artex
 [ -x "$BIN" ] || { echo "[artex] Executable not found: $BIN" >&2; exit 1; }
 
