@@ -1,8 +1,48 @@
-# Reuse the local Codex ChatGPT login
+# Codex ChatGPT login and personal access tokens
 
-ARTEX's **Codex (ChatGPT login)** LLM format reads the existing Codex CLI
-credential cache. It does not add a separate OAuth flow, copy the tokens into
-PostgreSQL, or send them to the browser.
+ARTEX's **Codex (ChatGPT / access token)** LLM format accepts a Codex CLI
+ChatGPT login or a Codex-scoped personal access token (`at-…`). Credentials stay
+on the server; they are not copied into PostgreSQL profiles or sent to the browser.
+
+## Personal access token
+
+For Docker Compose, set these values in `.env`:
+
+```dotenv
+ARTEX_LLM_PROVIDER=codex
+ARTEX_LLM_MODEL=your-codex-model-id
+CODEX_ACCESS_TOKEN='at-your-personal-access-token'
+ARTEX_CODEX_AUTH_JSON=
+```
+
+Set **only one** of `CODEX_ACCESS_TOKEN` and `ARTEX_CODEX_AUTH_JSON`. On startup,
+the token is imported into `/app/data/codex/auth.json` with mode `0600`, and both
+seed variables are removed from the environment passed to ARTEX and its tools.
+The same restart, replacement, and logout rules described below apply to tokens.
+After changing the token, run `docker compose up -d --force-recreate artex`.
+
+For a native deployment, ARTEX also reads `CODEX_ACCESS_TOKEN` directly, with
+precedence over the credential file. Alternatively, use the CLI's file store:
+
+```sh
+printenv CODEX_ACCESS_TOKEN | codex -c 'cli_auth_credentials_store="file"' login --with-access-token
+unset CODEX_ACCESS_TOKEN
+```
+
+Native environment variables can be inherited by child tools; use the persisted
+login if you do not want the token in their environment. Same-user file access
+still applies. A token-based `auth.json` can also be pasted into
+`ARTEX_CODEX_AUTH_JSON` instead of setting `CODEX_ACCESS_TOKEN`.
+
+Choose **Codex (ChatGPT / access token)** in LLM settings, load the model list,
+test, save, and activate the profile. The model can be configured in the UI
+instead of `.env`. The status indicator checks credential shape only; connection
+testing checks actual access. Expired or revoked tokens must be replaced; they
+do not use the OAuth refresh-token flow.
+
+The token must have **Codex** scope and the required workspace permissions.
+It is not a Platform API key. See OpenAI's
+[access token documentation](https://learn.chatgpt.com/docs/enterprise/access-tokens).
 
 ## Setup
 
@@ -10,7 +50,7 @@ PostgreSQL, or send them to the browser.
 2. Run `codex login` as the same OS user that runs ARTEX, choosing ChatGPT sign-in.
    ARTEX reads `$CODEX_HOME/auth.json` when `CODEX_HOME` is set; otherwise it reads
    `~/.codex/auth.json` in that OS user's home directory.
-3. In **System → LLM settings**, add a profile and select **Codex (ChatGPT login)**.
+3. In **System → LLM settings**, add a profile and select **Codex (ChatGPT / access token)**.
 4. Load the model list, select a model, test the connection, save, and activate
    the profile (or assign it to a task).
 
@@ -94,7 +134,7 @@ docker compose up -d
 ```
 
 If you prefer to choose the model in the UI, leave `ARTEX_LLM_MODEL` blank, then
-select **Codex (ChatGPT login)**, load the model list, test, save, and activate
+select **Codex (ChatGPT / access token)**, load the model list, test, save, and activate
 it in ARTEX's LLM settings. Existing database profiles take precedence over
 environment variables. When JSON is supplied and no provider is explicitly set,
 the container defaults to Codex.
@@ -120,12 +160,17 @@ applies inside the container.
 ## Authentication and protocol
 
 - ARTEX rereads the cache before each request, so CLI login changes are picked up.
-- Near expiry, or once after an HTTP 401, ARTEX runs `codex app-server` over stdio
+- For OAuth logins, near expiry or once after an HTTP 401, ARTEX runs `codex app-server` over stdio
   and requests `account/read` with `refreshToken: true`. Codex performs token
   rotation and writes the cache; the LLM provider does not use the refresh token.
 - Refreshes within ARTEX are serialized. A separate Codex process can still
   update the same cache; refresh failures are surfaced rather than overwritten.
 - The model picker uses Codex's `model/list` RPC. Neither RPC starts an agent turn.
+- For personal access tokens, ARTEX retrieves the workspace ID from the fixed
+  `https://auth.openai.com/api/accounts/v1/user-auth-credential/whoami` endpoint
+  used by the CLI, then caches it for that token. Metadata redirects are rejected.
+  Changing the token triggers a new lookup. The same token authenticates inference;
+  no OAuth refresh or fallback to a different login occurs on a PAT HTTP 401.
 - Inference uses the fixed Codex ChatGPT Responses endpoint. Profile URLs,
   proxies, and custom authentication headers cannot redirect these credentials.
   Redirects are rejected. The provider always streams with `store: false`, strips
@@ -141,10 +186,11 @@ provider for Platform API keys.
 ## Security boundary
 
 Tokens are not stored in ARTEX profiles or returned in API responses. The Docker
-startup importer removes the JSON seed before launching ARTEX and its child
-processes. Inference attaches the access token only to the fixed HTTPS
-destination. Token rotation is delegated to the Codex CLI; ARTEX does not
-implement its own refresh-token exchange.
+startup importer removes both credential seed variables before launching ARTEX
+and its child processes. Personal access tokens are sent only to OpenAI's fixed
+authentication metadata and Codex inference endpoints by the adapter. OAuth
+token rotation is delegated to the Codex CLI; ARTEX does not implement its own
+refresh-token exchange.
 
 **This is not credential isolation from ARTEX tools.** Shell/file tools running
 as the same OS user can read `$CODEX_HOME/auth.json` (by default

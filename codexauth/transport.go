@@ -59,7 +59,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, errors.New("Codex inference connection failed")
 	}
-	if resp.StatusCode == http.StatusUnauthorized {
+	if resp.StatusCode == http.StatusUnauthorized && !cred.personalAccessToken {
 		resp.Body.Close()
 		cred, err = t.Source.get(req.Context(), cred.access)
 		if err != nil {
@@ -221,8 +221,12 @@ func checkedStream(source io.ReadCloser) io.ReadCloser {
 }
 
 func HTTPClient(source *Source) *http.Client {
+	return &http.Client{Transport: &Transport{Base: directTransport(), Source: source}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+}
+
+func directTransport() *http.Transport {
 	base := http.DefaultTransport.(*http.Transport).Clone()
 	base.Proxy = nil
 	base.ResponseHeaderTimeout = 30 * time.Second
-	return &http.Client{Transport: &Transport{Base: base, Source: source}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return base
 }

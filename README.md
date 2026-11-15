@@ -105,9 +105,10 @@ The image bundles common tools (ripgrep, curl, vim, npm, nmap, and more), and wh
 
 After source changes, rerun `docker compose up -d --build` to deploy the updated code.
 
-To reuse a **Codex ChatGPT login** in Docker, the image includes the Codex CLI.
-Paste the full `auth.json` content into the single-quoted `ARTEX_CODEX_AUTH_JSON`
-value in `.env`, then run `docker compose up -d`. Refreshed credentials persist
+To use **Codex authentication** in Docker, set `CODEX_ACCESS_TOKEN='at-…'` in
+`.env` for a personal access token with Codex scope, or paste the full `auth.json`
+content into the single-quoted `ARTEX_CODEX_AUTH_JSON` value. Set only one, then
+run `docker compose up -d`. The image includes the Codex CLI, and credentials persist
 under `./data/codex`. See [Codex authentication in Docker Compose](docs/codex-auth.md#docker-compose)
 for the exact `.env` layout and how to build an image with this feature.
 

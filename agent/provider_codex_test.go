@@ -59,3 +59,23 @@ func TestCodexCompleteAccumulatesStream(t *testing.T) {
 		t.Fatalf("bad completion: %v %v", m, err)
 	}
 }
+
+func TestCodexPersonalAccessTokenFromEnv(t *testing.T) {
+	t.Setenv("CODEX_HOME", t.TempDir())
+	t.Setenv("CODEX_ACCESS_TOKEN", "at-env-fixture")
+	t.Setenv("ARTEX_LLM_PROVIDER", "")
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "")
+	t.Setenv("ARTEX_LLM_MODEL", "fixture-model")
+	c, ok := FromEnv()
+	if !ok || c.Provider() != "codex" || c.APIKey != "" {
+		t.Fatal("PAT was not selected or leaked into config")
+	}
+	if _, err := c.NewProvider(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ARTEX_LLM_PROVIDER", "openai")
+	if _, ok := FromEnv(); ok {
+		t.Fatal("PAT must not authenticate an OpenAI Platform profile")
+	}
+}

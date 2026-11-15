@@ -3490,10 +3490,10 @@
       }
     },
     "codex": {
-      "label": "Codex（ChatGPT ログイン）",
-      "hint": "ARTEX サーバー上の Codex CLI の ChatGPT ログインを使用します。Docker Compose では .env の ARTEX_CODEX_AUTH_JSON に auth.json を貼り付けてください。それ以外ではサーバー上で codex login を実行してください。この設定に API キーは保存されません。",
+      "label": "Codex（ChatGPT / アクセストークン）",
+      "hint": "サーバー上の Codex 認証情報を使用します。Docker Compose では、Codex スコープの at-… トークンを CODEX_ACCESS_TOKEN に設定するか、auth.json を ARTEX_CODEX_AUTH_JSON に貼り付けてください。設定するのは片方だけです。サーバー上で codex login を実行することもできます。この設定に認証情報は保存されません。",
       "checking": "Codex のログインを確認中…",
-      "connected": "保存済みの ChatGPT ログインが見つかりました。接続テストでアクセスを確認してください。",
+      "connected": "Codex の認証情報が見つかりました。接続テストでアクセスを確認してください。",
       "check": "ログインを再確認"
     }
   },

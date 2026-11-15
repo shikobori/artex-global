@@ -3490,10 +3490,10 @@
       }
     },
     "codex": {
-      "label": "Codex（ChatGPT 登录）",
-      "hint": "使用 ARTEX 服务器上的 Codex CLI ChatGPT 登录。使用 Docker Compose 时，将 auth.json 粘贴到 .env 的 ARTEX_CODEX_AUTH_JSON 中；其他环境请在服务器上运行 codex login。此配置不保存 API 密钥。",
+      "label": "Codex（ChatGPT / 访问令牌）",
+      "hint": "使用服务器上的 Codex 凭据。在 Docker Compose 中，将具有 Codex 权限的 at-… 令牌设为 CODEX_ACCESS_TOKEN，或将 auth.json 粘贴到 ARTEX_CODEX_AUTH_JSON。只设置其中一项。也可以在服务器上运行 codex login。此配置不保存凭据。",
       "checking": "正在检查 Codex 登录…",
-      "connected": "已找到保存的 ChatGPT 登录。请测试连接以验证访问权限。",
+      "connected": "已找到 Codex 凭据。请测试连接以验证访问权限。",
       "check": "重新检查登录"
     }
   },

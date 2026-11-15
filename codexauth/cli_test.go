@@ -53,6 +53,7 @@ func TestCLIProtocolWithoutRealCredentials(t *testing.T) {
 	t.Setenv("PATH", dir)
 	t.Setenv("ARTEX_TEST_CODEX_HELPER", "1")
 	t.Setenv("CODEX_HOME", dir)
+	t.Setenv("CODEX_ACCESS_TOKEN", "")
 	writeAuth(t, filepath.Join(dir, "auth.json"), "fixture")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -62,5 +63,16 @@ func TestCLIProtocolWithoutRealCredentials(t *testing.T) {
 	models, err := Models(ctx)
 	if err != nil || len(models) != 1 || models[0] != "fixture-model" {
 		t.Fatalf("models=%v err=%v", models, err)
+	}
+	writePAT(t, filepath.Join(dir, "auth.json"), "at-cache-fixture")
+	models, err = Models(ctx)
+	if err != nil || len(models) != 1 || models[0] != "fixture-model" {
+		t.Fatalf("PAT models=%v err=%v", models, err)
+	}
+	os.Remove(filepath.Join(dir, "auth.json"))
+	t.Setenv("CODEX_ACCESS_TOKEN", "at-env-fixture")
+	models, err = Models(ctx)
+	if err != nil || len(models) != 1 || models[0] != "fixture-model" {
+		t.Fatalf("environment PAT models=%v err=%v", models, err)
 	}
 }

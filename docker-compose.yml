@@ -32,6 +32,8 @@ services:
       # Paste the complete auth.json as a single-quoted value in .env.
       # The entrypoint imports it once, then removes it from ARTEX's environment.
       ARTEX_CODEX_AUTH_JSON: ${ARTEX_CODEX_AUTH_JSON:-}
+      # Alternative: a Codex-scoped personal access token (at-...).
+      CODEX_ACCESS_TOKEN: ${CODEX_ACCESS_TOKEN:-}
       CODEX_HOME: /app/data/codex
       ARTEX_LLM_PROVIDER: ${ARTEX_LLM_PROVIDER:-}
       ARTEX_LLM_MODEL: ${ARTEX_LLM_MODEL:-}

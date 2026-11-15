@@ -31,6 +31,7 @@ class CredentialImportTests(unittest.TestCase):
         result = {"CODEX_HOME": str(self.home), "ARTEX_CODEX_AUTH_JSON": data, **env}
         entrypoint.prepare_environment(result)
         self.assertNotIn("ARTEX_CODEX_AUTH_JSON", result)
+        self.assertNotIn("CODEX_ACCESS_TOKEN", result)
         return result
 
     def test_import_permissions_unknown_fields_and_provider(self):
@@ -94,6 +95,47 @@ class CredentialImportTests(unittest.TestCase):
             execute.assert_not_called()
         self.assertNotIn("secret-not-json", stderr.getvalue())
         self.assertNotIn("Traceback", stderr.getvalue())
+
+    def test_personal_access_token_import_rotation_and_logout(self):
+        env = self.prepare("", CODEX_ACCESS_TOKEN="at-synthetic-first")
+        self.assertEqual(env["ARTEX_LLM_PROVIDER"], "codex")
+        path = self.home / "auth.json"
+        expected = {"OPENAI_API_KEY": None, "personal_access_token": "at-synthetic-first"}
+        self.assertEqual(json.loads(path.read_text()), expected)
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE(self.home.stat().st_mode), 0o700)
+        self.prepare("", CODEX_ACCESS_TOKEN="at-synthetic-second")
+        self.assertEqual(json.loads(path.read_text())["personal_access_token"], "at-synthetic-second")
+        path.unlink()
+        self.prepare("", CODEX_ACCESS_TOKEN="at-synthetic-second")
+        self.assertFalse(path.exists(), "restart must preserve logout")
+
+    def test_personal_access_token_cache_import(self):
+        data = {"OPENAI_API_KEY": None, "personal_access_token": "at-synthetic", "additional_field": "preserve-me"}
+        self.prepare(json.dumps(data))
+        self.assertEqual(json.loads((self.home / "auth.json").read_text()), data)
+
+    def test_personal_access_token_conflicts_and_invalid_values_do_not_overwrite(self):
+        self.prepare(json.dumps(fixture()))
+        before = (self.home / "auth.json").read_bytes()
+        cases = [(json.dumps(fixture()), "at-secret"), ("", "sk-secret"), ("", "at-"),
+                 ("", "at-secret\n"), ("", "at-secret value"), ("", "at-secret\x7f"),
+                 (json.dumps({"personal_access_token": "at-secret", "tokens": fixture()["tokens"]}), ""),
+                 (json.dumps({"personal_access_token": "at-secret", "OPENAI_API_KEY": "sk-secret"}), "")]
+        for raw, token in cases:
+            with self.subTest(raw=raw, token=token):
+                with self.assertRaises(entrypoint.CredentialError) as error:
+                    self.prepare(raw, CODEX_ACCESS_TOKEN=token)
+                self.assertNotIn("secret", str(error.exception))
+                self.assertEqual((self.home / "auth.json").read_bytes(), before)
+
+    def test_personal_access_token_is_not_in_child_environment(self):
+        env = {"CODEX_HOME": str(self.home), "CODEX_ACCESS_TOKEN": "at-synthetic", "ARTEX_CODEX_AUTH_JSON": ""}
+        with patch.dict(os.environ, env, clear=True), patch.object(entrypoint.os, "execvpe") as execute:
+            self.assertEqual(entrypoint.main(), 0)
+            child_env = execute.call_args.args[2]
+            self.assertNotIn("CODEX_ACCESS_TOKEN", child_env)
+            self.assertNotIn("ARTEX_CODEX_AUTH_JSON", child_env)
 
 
 if __name__ == "__main__":

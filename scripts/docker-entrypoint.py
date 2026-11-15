@@ -32,6 +32,13 @@ def atomic_write(path: Path, data: bytes) -> None:
             os.unlink(temporary)
 
 
+def validate_personal_access_token(token: str) -> None:
+    if not isinstance(token, str) or not token.startswith("at-") or not 3 < len(token) <= 64 * 1024:
+        raise CredentialError("CODEX_ACCESS_TOKEN must be a Codex personal access token beginning with at-")
+    if any(not 33 <= ord(character) <= 126 for character in token):
+        raise CredentialError("Codex personal access token contains invalid characters")
+
+
 def import_auth(raw: str, home: Path) -> None:
     if len(raw.encode("utf-8")) > 1024 * 1024:
         raise CredentialError("ARTEX_CODEX_AUTH_JSON is too large")
@@ -39,17 +46,24 @@ def import_auth(raw: str, home: Path) -> None:
         auth = json.loads(raw)
     except (ValueError, RecursionError):
         raise CredentialError("ARTEX_CODEX_AUTH_JSON must contain the complete, valid auth.json JSON") from None
-    if not isinstance(auth, dict) or auth.get("auth_mode") not in (None, "chatgpt"):
-        raise CredentialError("ARTEX_CODEX_AUTH_JSON must contain a Codex ChatGPT login")
-    tokens = auth.get("tokens")
-    if not isinstance(tokens, dict) or any(
-        not isinstance(tokens.get(key), str)
-        or not tokens[key].strip()
-        or "\r" in tokens[key]
-        or "\n" in tokens[key]
-        for key in ("access_token", "refresh_token", "account_id")
-    ):
-        raise CredentialError("Codex auth.json is missing valid access_token, refresh_token, or account_id fields")
+    if not isinstance(auth, dict):
+        raise CredentialError("ARTEX_CODEX_AUTH_JSON must contain a Codex authentication object")
+    if auth.get("personal_access_token") is not None:
+        validate_personal_access_token(auth["personal_access_token"])
+        if auth.get("auth_mode") not in (None, "personal_access_token") or auth.get("tokens") or auth.get("OPENAI_API_KEY"):
+            raise CredentialError("Codex auth.json contains conflicting authentication methods")
+    else:
+        if auth.get("auth_mode") not in (None, "chatgpt"):
+            raise CredentialError("ARTEX_CODEX_AUTH_JSON must contain a Codex ChatGPT login or personal access token")
+        tokens = auth.get("tokens")
+        if not isinstance(tokens, dict) or any(
+            not isinstance(tokens.get(key), str)
+            or not tokens[key].strip()
+            or "\r" in tokens[key]
+            or "\n" in tokens[key]
+            for key in ("access_token", "refresh_token", "account_id")
+        ):
+            raise CredentialError("Codex auth.json is missing valid access_token, refresh_token, or account_id fields")
     # Canonicalize so changing whitespace/key order in .env does not roll back
     # a session that Codex has already refreshed.
     data = json.dumps(auth, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -77,6 +91,13 @@ def prepare_environment(environ: dict) -> None:
     # Remove the entire seed from the supervisor/ARTEX/tool environment. Docker
     # still retains its configured environment; Docker-admin access is trusted.
     raw = environ.pop("ARTEX_CODEX_AUTH_JSON", "")
+    token = environ.pop("CODEX_ACCESS_TOKEN", "")
+    if token:
+        if raw.strip():
+            raise CredentialError("Set only one of CODEX_ACCESS_TOKEN and ARTEX_CODEX_AUTH_JSON")
+        validate_personal_access_token(token)
+        # Match the credential cache produced by `codex login --with-access-token`.
+        raw = json.dumps({"OPENAI_API_KEY": None, "personal_access_token": token})
     if not raw.strip():
         return
     home = Path(environ.get("CODEX_HOME") or "/app/data/codex")

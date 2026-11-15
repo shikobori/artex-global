@@ -3490,10 +3490,10 @@
       }
     },
     "codex": {
-      "label": "Codex (ChatGPT login)",
-      "hint": "Uses the Codex CLI ChatGPT login on the ARTEX server. For Docker Compose, paste auth.json into ARTEX_CODEX_AUTH_JSON in .env; otherwise run codex login on the server. No API key is stored in this profile.",
+      "label": "Codex (ChatGPT / access token)",
+      "hint": "Uses server-side Codex credentials. In Docker Compose, set CODEX_ACCESS_TOKEN to an at-… token with Codex scope, or paste auth.json into ARTEX_CODEX_AUTH_JSON. Set only one. You can also use codex login on the server. Credentials are not stored in this profile.",
       "checking": "Checking Codex login…",
-      "connected": "Cached ChatGPT login found. Test the connection to verify access.",
+      "connected": "Codex credentials found. Test the connection to verify access.",
       "check": "Check login again"
     }
   },

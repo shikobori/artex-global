@@ -164,6 +164,8 @@ func FromEnv() (Config, bool) {
 			prov = "anthropic"
 		case oaiKey != "":
 			prov = "openai"
+		case os.Getenv("CODEX_ACCESS_TOKEN") != "":
+			prov = "codex"
 		default:
 			return Config{}, false
 		}

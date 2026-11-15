@@ -11,6 +11,7 @@ import (
 func TestCodexStatusNeverReturnsCredentials(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CODEX_HOME", dir)
+	t.Setenv("CODEX_ACCESS_TOKEN", "")
 	t.Setenv("PATH", dir)
 	// Status only locates the CLI; it must not execute it or refresh credentials.
 	if err := os.WriteFile(filepath.Join(dir, "codex"), []byte("#!/bin/sh\nexit 99\n"), 0700); err != nil {
@@ -34,5 +35,11 @@ func TestCodexStatusNeverReturnsCredentials(t *testing.T) {
 	s.codexStatus(w, httptest.NewRequest("GET", "/api/llm/codex/status", nil))
 	if !strings.Contains(w.Body.String(), `"connected":false`) {
 		t.Fatal("missing login reported as connected")
+	}
+	t.Setenv("CODEX_ACCESS_TOKEN", "at-env-fixture-secret")
+	w = httptest.NewRecorder()
+	s.codexStatus(w, httptest.NewRequest("GET", "/api/llm/codex/status", nil))
+	if !strings.Contains(w.Body.String(), `"connected":true`) || strings.Contains(w.Body.String(), "fixture") {
+		t.Fatal("PAT status missing or credential details leaked")
 	}
 }
